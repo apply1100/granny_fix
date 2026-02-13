@@ -1,25 +1,31 @@
 import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+import asyncio
+from aiogram import Bot, Dispatcher, Router
+from aiogram.filters import Command
+from aiogram.types import Message
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("pong ✅")
+router = Router()
 
-async def chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"chat_id: {update.effective_chat.id}")
+@router.message(Command("ping"))
+async def ping(message: Message):
+    await message.answer("pong ✅")
 
-def main():
-    print("Bot starting...")
+@router.message(Command("chatid"))
+async def chatid(message: Message):
+    await message.answer(f"chat_id: {message.chat.id}")
+
+async def main():
     if not TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
 
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("ping", ping))
-    app.add_handler(CommandHandler("chatid", chatid))
+    bot = Bot(token=TOKEN)
+    dp = Dispatcher()
+    dp.include_router(router)
 
-    app.run_polling()
+    print("Bot starting (aiogram)...")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
