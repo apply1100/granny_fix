@@ -24,11 +24,20 @@ MARKET_CORE_KEYWORDS = (
 MARKET_ASSET_KEYWORDS = (
     "btc",
     "xbt",
+    "비트",
     "비트코인",
     "bitcoin",
     "이더",
     "ethereum",
     "eth",
+)
+MARKET_CONTEXT_CUES = (
+    "자리",
+    "차트",
+    "흐름",
+    "추세",
+    "방향",
+    "뷰",
 )
 MARKET_QUERY_CUES = (
     "?",
@@ -146,11 +155,12 @@ def _looks_like_market_question(normalized: str) -> bool:
     has_asset_keyword = _contains_any(normalized, MARKET_ASSET_KEYWORDS)
     has_query_cue = _contains_any(normalized, MARKET_QUERY_CUES)
     has_direction_cue = _contains_any(normalized, MARKET_DIRECTION_CUES)
+    has_context_cue = _contains_any(normalized, MARKET_CONTEXT_CUES)
 
     if has_core_keyword and (has_query_cue or has_direction_cue):
         return True
 
-    if has_asset_keyword and has_query_cue and has_direction_cue:
+    if has_asset_keyword and has_query_cue and (has_direction_cue or has_context_cue):
         return True
 
     return False
