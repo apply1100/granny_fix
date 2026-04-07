@@ -5,7 +5,7 @@ import logging
 import aiohttp
 
 from pathlib import Path
-from services.casual_chat_service import build_grandma_unavailable_reply
+from services.casual_chat_service import build_grandma_quick_reply, build_grandma_unavailable_reply
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,10 @@ _GEMINI_RETRY_AFTER_TS = 0.0
 
 async def get_grandma_casual_reply(user_message: str, history: list[dict[str, str]] | None = None) -> str:
     global _GEMINI_RETRY_AFTER_TS
+
+    quick_reply = build_grandma_quick_reply(user_message)
+    if quick_reply:
+        return quick_reply
 
     api_key = _get_gemini_api_key()
     if not api_key:

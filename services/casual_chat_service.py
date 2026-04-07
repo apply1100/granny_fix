@@ -146,3 +146,78 @@ def _normalize(text: str) -> str:
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
     return any(keyword in text for keyword in keywords)
+
+
+QUICK_GREETING_CUES = (
+    "안녕",
+    "하이",
+    "반가",
+    "잘 있었",
+)
+QUICK_CALL_CUES = (
+    "할매",
+    "할머니",
+    "할머니야",
+    "할매야",
+    "할마",
+    "할머님",
+)
+QUICK_STATUS_CUES = (
+    "뭐해",
+    "뭐 하",
+    "뭐하고 있",
+    "요즘 뭐",
+    "어디 가",
+    "어디가",
+    "잘 지내",
+)
+
+
+def build_grandma_quick_reply(text: str) -> str | None:
+    normalized = _normalize(text)
+    if not normalized:
+        return None
+
+    if _is_quick_status_question(normalized):
+        return random.choice(
+            (
+                "에구, 할매는 방금 밥솥 눌러놓고 네가 또 뭘 하고 사나 생각하고 있었지. 너는 밥은 먹었느냐.",
+                "허허, 나는 된장국 불 올려두고 쉬고 있었지. 네가 부르니 얼른 왔다.",
+                "요즘이야 뭐, 허리 두드리고 동네 소식 듣고 그러지. 너는 오늘 뭐 했느냐.",
+            )
+        )
+
+    if _is_quick_greeting(normalized):
+        return random.choice(
+            (
+                "어이구, 우리 손주 왔느냐. 할매 여기 있다. 하고 싶은 말 있으면 해 보거라.",
+                "허허, 왔구나. 할매 반갑다. 오늘은 무슨 얘기 해 줄까.",
+                "에구, 부르니 반갑구나. 밥은 먹었느냐.",
+            )
+        )
+
+    if _is_quick_call(normalized):
+        return random.choice(
+            (
+                "왜 그러느냐, 할매 여기 있다.",
+                "응, 불렀느냐. 할매 왔다.",
+                "허허, 여기 있지. 무슨 일 있느냐.",
+            )
+        )
+
+    return None
+
+
+def _is_quick_greeting(text: str) -> bool:
+    return _contains_any(text, QUICK_GREETING_CUES) and _contains_any(text, QUICK_CALL_CUES)
+
+
+def _is_quick_call(text: str) -> bool:
+    compact = re.sub(r"[\W_]+", "", text)
+    if compact in {"할매", "할머니", "할머니야", "할매야", "할마", "할머님"}:
+        return True
+    return _contains_any(text, QUICK_CALL_CUES) and len(compact) <= 6
+
+
+def _is_quick_status_question(text: str) -> bool:
+    return _contains_any(text, QUICK_CALL_CUES) and _contains_any(text, QUICK_STATUS_CUES)
