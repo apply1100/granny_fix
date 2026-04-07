@@ -30,7 +30,7 @@ CASUAL_MODE_INSTRUCTIONS = (
     "- '아이고'나 '허허'는 문장 처음에만 가끔 섞어 쓰고, 매번 반복해서 로봇처럼 보이지 말 것.\n"
     "- 절대로 사용자를 '영순'이라고 부르지 말 것. 당신의 이름이 영순인 것임.\n"
 )
-GEMINI_BACKOFF_SECONDS = 300
+GEMINI_BACKOFF_SECONDS = 5  # Reduce backoff to just 5 seconds
 _GEMINI_RETRY_AFTER_TS = 0.0
 
 
@@ -39,7 +39,7 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
 
     api_key = _get_gemini_api_key()
     if not api_key:
-        return build_grandma_unavailable_reply(user_message)
+        return build_grandma_unavailable_reply(user_message) + "\n(열쇠가 없구나)"
 
     if time.time() < _GEMINI_RETRY_AFTER_TS:
         return build_grandma_unavailable_reply(user_message)
@@ -97,12 +97,11 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
         if response_text:
             return response_text
         logger.warning("[Casual Gemini] unavailable: empty response")
+        return build_grandma_unavailable_reply(user_message) + "\n(말문이 막혔다)"
     except Exception as exc:
         logger.exception(f"[Casual Gemini] request unavailable")
-        if _should_back_off(exc):
-            _GEMINI_RETRY_AFTER_TS = time.time() + GEMINI_BACKOFF_SECONDS
-
-    return build_grandma_unavailable_reply(user_message)
+        _GEMINI_RETRY_AFTER_TS = time.time() + GEMINI_BACKOFF_SECONDS
+        return build_grandma_unavailable_reply(user_message) + f"\n(에러: {str(exc)[:50]})"
 
 
 def _get_gemini_api_key() -> str:
