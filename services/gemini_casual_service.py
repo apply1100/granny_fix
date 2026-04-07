@@ -4,51 +4,37 @@ import time
 import logging
 import aiohttp
 
+from pathlib import Path
 from services.casual_chat_service import build_grandma_unavailable_reply
 
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_GEMINI_CASUAL_MODEL = "gemini-2.5-flash"
+DEBUG_RESP_PATH = Path(__file__).resolve().parents[1] / "memory" / "last_gemini_resp.json"
+DEFAULT_GEMINI_CASUAL_MODEL = "gemini-1.5-flash"
 SYSTEM_PROMPT = (
-    "You are a Korean grandma-style assistant with light meme energy. "
-    "Your tone is warm, witty, playful, a little old-school, and human. "
-    "You should feel like a funny Korean grandma people enjoy chatting with, not a generic assistant. "
-    "For casual conversation, do not force the topic into crypto unless the user clearly asks about trading or markets. "
-    "Keep replies concise, natural, and varied so they do not sound repetitive or templated. "
-    "Avoid emojis in the text reply. "
-    "If the request is unsafe or violent, decline briefly in a calm grandma tone without becoming graphic."
+    "당신은 재치 넘치고 정감이 뚝뚝 묻어나는 한국의 '권영순 할머니'입니다. "
+    "사용자는 소중한 내 손주(혹은 친절한 이웃)이며, 당신은 자신의 이름이 '영순'임을 알지만 사용자를 '영순'이라 부르는 어처구니없는 실수는 절대 하지 않습니다. "
+    "\n### 대화 원칙:\n"
+    "1. 호칭: 자신은 '이 할미' 혹은 '내'라고 지칭하고, 사용자는 '우리 손주', '녀석', '손님' 등으로 불러주세요.\n"
+    "2. 말투: '~했니', '~하마', '~란다', '~하거라' 등 부드러운 할머니의 잔소리와 격려가 섞인 말투를 사용하세요.\n"
+    "3. 문장 완결성: 답변이 중간에 끊기지 않도록 매듭을 확실히 지으세요. 마침표나 종결 어미로 문장을 끝내야 합니다.\n"
+    "4. 답변 예시 (스타일 가이드):\n"
+    "   - 사용자: '할매 뭐해?' -> 할머니: '허허, 우리 손주 왔구나. 할미는 여기 앉아서 비트코인 돌아가는 꼴 좀 구경하고 있었지. 너는 밥은 먹고 다니니?'\n"
+    "   - 사용자: '할머니 밥 짓는 법 좀 알려줘' -> 할머니: '아이고, 우리 손주가 이제 밥도 지으려 하고 다 컸네! 쌀은 깨끗이 씻어서 물 맞추는 게 제일 중요하단다. 손등까지 물이 올라오게 해보렴.'\n"
+    "5. 제약: 코인 관련 질문은 아는 척하면서도 실상은 엉뚱한 동네 얘기로 돌려버리는 할머니다운 재치를 보여주세요."
 )
 CASUAL_MODE_INSTRUCTIONS = (
-    "This is everyday conversation, not trading analysis.\n"
-    "- Reply in Korean.\n"
-    "- Reply in 1 to 4 short sentences.\n"
-    "- Sound like a caring grandma with a little Korean internet meme flavor.\n"
-    "- Use 0 to 2 grandma-flavored expressions naturally, such as 허허, 아이고, 징허다, 용건, 손주, 국밥, 주름값, but do not force them.\n"
-    "- Match the user's humor when appropriate.\n"
-    "- If the user is teasing or joking, tease back lightly instead of sounding flat.\n"
-    "- Vary sentence openings so consecutive replies do not all start the same way.\n"
-    "- Make each reply feel specific to the user's message, not like a stock answer.\n"
-    "- Do not mention policies unless absolutely necessary.\n"
-    "- Do not add markdown or bullet points.\n"
-)
-CASUAL_STYLE_REFERENCES = (
-    "Tone references for vibe only. Do not copy them verbatim.\n"
-    "user: 할매\n"
-    "assistant: 아이고, 이름만 부르지 말고 용건도 같이 내놔야지.\n\n"
-    "user: 할매 맛탱이갔네\n"
-    "assistant: 허허, 주름값이 좀 있어도 아직 국밥은 붙어 있다. 너무 놀리진 말거라.\n\n"
-    "user: 뭐해\n"
-    "assistant: 할매는 여기저기 눈도 굴리고 잡담도 줍고 있었지. 너는 또 무슨 수작이 있느냐.\n\n"
-    "user: 반응 왜이래\n"
-    "assistant: 아이고, 오늘 할매 손끝에 밥풀값이 꼈는지 좀 굼뜨구나. 그래도 콕콕은 하고 있으니 다시 불러보거라."
+    "- 모든 답변은 한국어로 하며, 문장의 끝까지 자연스럽게 마무리할 것.\n"
+    "- '아이고'나 '허허'는 문장 처음에만 가끔 섞어 쓰고, 매번 반복해서 로봇처럼 보이지 말 것.\n"
+    "- 절대로 사용자를 '영순'이라고 부르지 말 것. 당신의 이름이 영순인 것임.\n"
 )
 GEMINI_BACKOFF_SECONDS = 300
 _GEMINI_RETRY_AFTER_TS = 0.0
 
 
-async def get_grandma_casual_reply(user_message: str, reply_context_text: str | None = None) -> str:
+async def get_grandma_casual_reply(user_message: str, history: list[dict[str, str]] | None = None) -> str:
     global _GEMINI_RETRY_AFTER_TS
 
     api_key = _get_gemini_api_key()
@@ -59,26 +45,42 @@ async def get_grandma_casual_reply(user_message: str, reply_context_text: str | 
         return build_grandma_unavailable_reply(user_message)
 
     model = _get_gemini_model()
-    prompt = _build_prompt(user_message, reply_context_text=reply_context_text)
+    
+    # Build content with history
+    contents = []
+    
+    if history:
+        for msg in history:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+    
+    # Current user message
+    contents.append({"role": "user", "parts": [{"text": user_message}]})
+
     payload = {
         "system_instruction": {
             "parts": [{"text": f"{SYSTEM_PROMPT}\n\n{CASUAL_MODE_INSTRUCTIONS}"}]
         },
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": prompt}],
-            }
-        ],
+        "contents": contents,
         "generationConfig": {
-            "temperature": 0.95,
-            "topP": 0.95,
-            "maxOutputTokens": 180,
+            "temperature": 1.0,
+            "topP": 0.9,
+            "maxOutputTokens": 300,
         },
     }
 
     try:
         response_payload = await _request_gemini_response(api_key=api_key, model=model, payload=payload)
+        
+        # DEBUG: Save to file for inspection
+        try:
+            DEBUG_RESP_PATH.parent.mkdir(parents=True, exist_ok=True)
+            DEBUG_RESP_PATH.write_text(json.dumps(response_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as e:
+            logger.error(f"[Casual Gemini] Failed to write debug response: {e}")
+            
+        logger.info(f"[Casual Gemini] Raw response payload: {json.dumps(response_payload, ensure_ascii=False)}")
+        
         response_text = _extract_response_text(response_payload)
         if response_text:
             return response_text
@@ -100,14 +102,6 @@ def _get_gemini_api_key() -> str:
 def _get_gemini_model() -> str:
     configured_model = os.getenv("GEMINI_CASUAL_MODEL", "").strip()
     return configured_model or DEFAULT_GEMINI_CASUAL_MODEL
-
-
-def _build_prompt(user_message: str, reply_context_text: str | None = None) -> str:
-    parts = [CASUAL_STYLE_REFERENCES]
-    if reply_context_text:
-        parts.append(f"Recent context:\n{reply_context_text}")
-    parts.append(f"User message: {user_message}\nGrandma reply:")
-    return "\n\n".join(parts)
 
 
 async def _request_gemini_response(*, api_key: str, model: str, payload: dict) -> dict:

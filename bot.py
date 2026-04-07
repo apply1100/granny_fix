@@ -26,6 +26,7 @@ from services.casual_chat_service import (
     pick_grandma_reaction_candidates,
 )
 from services.message_intent_service import classify_message_intent
+from services.memory_service import memory_service
 from services.gemini_casual_service import get_grandma_casual_reply
 from services.coinalyze_service import (
     CoinalyzeError,
@@ -413,8 +414,23 @@ async def market_chat(message: Message):
 
     if intent in {"casual", "unsafe"}:
         await _acknowledge_message(message, is_market=False)
-        reply_context_text = _build_reply_context_text(reply_to_message)
-        reply = await get_grandma_casual_reply(text, reply_context_text)
+        
+        # Add to memory
+        chat_id = message.chat.id
+        memory_service.add_message(chat_id, "user", text)
+        
+        # Get history (excluding the message we just added if we want to pass it separately, 
+        # but my new service includes it in the list if we want. 
+        # Actually, let's get history BEFORE adding the current one if we want to follow the list structure, 
+        # but get_grandma_casual_reply adds the current one itself.
+        # Wait, I'll adjust the logic to be cleaner.)
+        history = memory_service.get_history(chat_id)[:-1] # All except current
+        
+        reply = await get_grandma_casual_reply(text, history)
+        
+        # Add bot reply to memory
+        memory_service.add_message(chat_id, "assistant", reply)
+        
         await message.answer(reply)
         return
 
