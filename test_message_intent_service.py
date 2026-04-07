@@ -13,6 +13,15 @@ class MessageIntentTests(unittest.TestCase):
         )
         self.assertEqual(intent, "market")
 
+    def test_market_intent_detects_bit_impression_question(self) -> None:
+        intent = classify_message_intent(
+            text="할매니 비트 어때보여",
+            chat_type="private",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "market")
+
     def test_casual_intent_keeps_short_grandma_status_question(self) -> None:
         intent = classify_message_intent(
             text="할매 요즘 뭐해",

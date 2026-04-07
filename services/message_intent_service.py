@@ -13,6 +13,7 @@ MARKET_CORE_KEYWORDS = (
     "oi",
     "cvd",
     "펀딩",
+    "대장",
     "고래",
     "상방",
     "하방",
@@ -39,21 +40,31 @@ MARKET_CONTEXT_CUES = (
     "방향",
     "뷰",
 )
+MARKET_IMPRESSION_CUES = (
+    "어때",
+    "어때보여",
+    "어때 보여",
+    "어떨까",
+    "어케 봐",
+    "어떻게 봐",
+    "괜찮아보여",
+    "괜찮아 보여",
+)
 MARKET_QUERY_CUES = (
     "?",
     "지금",
+    "언제",
     "어때",
-    "어떻",
     "뭐",
-    "누가",
-    "인가",
-    "이냐",
-    "냐",
-    "까",
+    "어디",
+    "얼마",
+    "왜",
+    "몇",
+    "끝",
     "붙었",
-    "때리",
+    "자리",
+    "보여줘",
     "봐줘",
-    "봐주",
     "분석",
     "추정",
     "확인",
@@ -76,27 +87,23 @@ MARKET_DIRECTION_CUES = (
     "oi",
     "cvd",
     "펀딩",
+    "대장",
     "고래",
 )
 GRANDMA_CALL_KEYWORDS = (
     "할매",
     "할머니",
-    "할미",
-    "할망",
     "할매야",
+    "할마",
     "할머니야",
     "할매님",
-    "할머니님",
-    "할마이",
-    "할마니",
-    "할무니",
     "할머님",
 )
 GRANDMA_SHORT_CALLS = (
     "할매",
     "할머니",
-    "할미",
-    "할망",
+    "할매야",
+    "할마",
 )
 IMAGE_CUES = (
     "사진",
@@ -109,13 +116,13 @@ IMAGE_CUES = (
 )
 VIOLENT_CUES = (
     "죽여",
-    "해치",
+    "해쳐",
     "폭행",
-    "학살",
+    "혼내",
     "목따",
-    "부수",
+    "부숴",
 )
-LOW_SIGNAL_CHARS = frozenset(" ㅋㅎㅠㅜ!?~.,")
+LOW_SIGNAL_CHARS = frozenset(" 하할매니야요!?~.,")
 
 
 def classify_message_intent(
@@ -156,8 +163,12 @@ def _looks_like_market_question(normalized: str) -> bool:
     has_query_cue = _contains_any(normalized, MARKET_QUERY_CUES)
     has_direction_cue = _contains_any(normalized, MARKET_DIRECTION_CUES)
     has_context_cue = _contains_any(normalized, MARKET_CONTEXT_CUES)
+    has_impression_cue = _contains_any(normalized, MARKET_IMPRESSION_CUES)
 
     if has_core_keyword and (has_query_cue or has_direction_cue):
+        return True
+
+    if has_asset_keyword and has_impression_cue:
         return True
 
     if has_asset_keyword and has_query_cue and (has_direction_cue or has_context_cue):
