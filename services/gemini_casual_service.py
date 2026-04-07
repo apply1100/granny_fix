@@ -46,16 +46,28 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
 
     model = _get_gemini_model()
     
-    # Build content with history
-    contents = []
-    
+    # Gather all messages
+    raw_items = []
     if history:
         for msg in history:
             role = "user" if msg["role"] == "user" else "model"
-            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+            raw_items.append({"role": role, "text": msg["content"]})
     
     # Current user message
-    contents.append({"role": "user", "parts": [{"text": user_message}]})
+    raw_items.append({"role": "user", "text": user_message})
+
+    # Combine consecutive roles and ensure it starts with "user"
+    contents = []
+    for item in raw_items:
+        if not contents:
+            if item["role"] == "model":
+                continue  # Skip leading model messages
+            contents.append({"role": item["role"], "parts": [{"text": item["text"]}]})
+        elif contents[-1]["role"] == item["role"]:
+            # Append text to the last message if the role is the same
+            contents[-1]["parts"][0]["text"] += f"\n\n{item['text']}"
+        else:
+            contents.append({"role": item["role"], "parts": [{"text": item["text"]}]})
 
     payload = {
         "system_instruction": {
