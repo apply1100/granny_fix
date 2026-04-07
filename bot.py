@@ -452,6 +452,11 @@ async def run_bitmex_whale_watcher(bot: Bot):
                     for chat_id in chat_ids:
                         try:
                             await bot.send_message(chat_id, alert_text)
+                            logger.info(
+                                f"[BitMEX Watcher] alert sent trade_id={trade.trade_id} "
+                                f"chat_id={chat_id} local_time='{trade.local_time}' "
+                                f"side={trade.side} size={trade.size} symbol={trade.symbol}"
+                            )
                         except TelegramForbiddenError as exc:
                             await _cleanup_failed_runtime_subscription(chat_id)
                             logger.error(f"[BitMEX Watcher] send forbidden for chat {chat_id}: {exc}")

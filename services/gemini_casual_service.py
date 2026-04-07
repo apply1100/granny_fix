@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEBUG_RESP_PATH = Path(__file__).resolve().parents[1] / "memory" / "last_gemini_resp.json"
 DEFAULT_GEMINI_CASUAL_MODEL = "gemini-1.5-flash"
+FALLBACK_GEMINI_CASUAL_MODELS = ("gemini-2.0-flash",)
 SYSTEM_PROMPT = (
     "당신은 재치 넘치고 정감이 뚝뚝 묻어나는 한국의 '권영순 할머니'입니다. "
     "사용자는 소중한 내 손주(혹은 친절한 이웃)이며, 당신은 자신의 이름이 '영순'임을 알지만 사용자를 '영순'이라 부르는 어처구니없는 실수는 절대 하지 않습니다. "
@@ -39,12 +40,13 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
 
     api_key = _get_gemini_api_key()
     if not api_key:
-        return build_grandma_unavailable_reply(user_message) + "\n(열쇠가 없구나)"
+        logger.warning("[Casual Gemini] unavailable: missing API key")
+        return build_grandma_unavailable_reply(user_message)
 
     if time.time() < _GEMINI_RETRY_AFTER_TS:
         return build_grandma_unavailable_reply(user_message)
 
-    model = _get_gemini_model()
+    models = _get_gemini_models()
     
     # Gather all messages
     raw_items = []
@@ -77,31 +79,42 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
         "generationConfig": {
             "temperature": 1.0,
             "topP": 0.9,
-            "maxOutputTokens": 300,
+            "maxOutputTokens": 800,
         },
     }
 
     try:
-        response_payload = await _request_gemini_response(api_key=api_key, model=model, payload=payload)
+        response_payload, model = await _request_gemini_with_fallback(
+            api_key=api_key,
+            models=models,
+            payload=payload,
+        )
         
         # DEBUG: Save to file for inspection
         try:
             DEBUG_RESP_PATH.parent.mkdir(parents=True, exist_ok=True)
-            DEBUG_RESP_PATH.write_text(json.dumps(response_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            DEBUG_RESP_PATH.write_text(
+                json.dumps({"model": model, "response": response_payload}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
         except Exception as e:
             logger.error(f"[Casual Gemini] Failed to write debug response: {e}")
             
-        logger.info(f"[Casual Gemini] Raw response payload: {json.dumps(response_payload, ensure_ascii=False)}")
+        logger.info(
+            f"[Casual Gemini] model={model} Raw response payload: "
+            f"{json.dumps(response_payload, ensure_ascii=False)}"
+        )
         
         response_text = _extract_response_text(response_payload)
         if response_text:
             return response_text
         logger.warning("[Casual Gemini] unavailable: empty response")
-        return build_grandma_unavailable_reply(user_message) + "\n(말문이 막혔다)"
+        return build_grandma_unavailable_reply(user_message)
     except Exception as exc:
         logger.exception(f"[Casual Gemini] request unavailable")
-        _GEMINI_RETRY_AFTER_TS = time.time() + GEMINI_BACKOFF_SECONDS
-        return build_grandma_unavailable_reply(user_message) + f"\n(에러: {str(exc)[:50]})"
+        if _should_back_off(exc):
+            _GEMINI_RETRY_AFTER_TS = time.time() + GEMINI_BACKOFF_SECONDS
+        return build_grandma_unavailable_reply(user_message)
 
 
 def _get_gemini_api_key() -> str:
@@ -110,9 +123,47 @@ def _get_gemini_api_key() -> str:
     return google_api_key or gemini_api_key
 
 
-def _get_gemini_model() -> str:
+def _get_gemini_models() -> list[str]:
     configured_model = os.getenv("GEMINI_CASUAL_MODEL", "").strip()
-    return configured_model or DEFAULT_GEMINI_CASUAL_MODEL
+    configured_fallbacks = [
+        model.strip()
+        for model in os.getenv("GEMINI_CASUAL_MODEL_FALLBACKS", "").split(",")
+        if model.strip()
+    ]
+
+    candidates = [configured_model or DEFAULT_GEMINI_CASUAL_MODEL]
+    if configured_model and configured_model != DEFAULT_GEMINI_CASUAL_MODEL:
+        candidates.append(DEFAULT_GEMINI_CASUAL_MODEL)
+
+    candidates.extend(configured_fallbacks)
+    candidates.extend(FALLBACK_GEMINI_CASUAL_MODELS)
+
+    ordered_unique_models: list[str] = []
+    for model in candidates:
+        if model not in ordered_unique_models:
+            ordered_unique_models.append(model)
+    return ordered_unique_models
+
+
+async def _request_gemini_with_fallback(*, api_key: str, models: list[str], payload: dict) -> tuple[dict, str]:
+    last_exc: Exception | None = None
+
+    for model in models:
+        try:
+            response_payload = await _request_gemini_response(api_key=api_key, model=model, payload=payload)
+            return response_payload, model
+        except Exception as exc:
+            last_exc = exc
+            if _is_missing_model_error(exc):
+                logger.warning(
+                    f"[Casual Gemini] model unavailable, retrying with fallback: model={model} error={exc}"
+                )
+                continue
+            raise
+
+    if last_exc is None:
+        raise RuntimeError("Gemini request failed before any model was tried")
+    raise last_exc
 
 
 async def _request_gemini_response(*, api_key: str, model: str, payload: dict) -> dict:
@@ -152,3 +203,8 @@ def _extract_response_text(payload: dict) -> str:
 def _should_back_off(exc: Exception) -> bool:
     message = str(exc).lower()
     return "http 429" in message or "resource_exhausted" in message or "quota" in message
+
+
+def _is_missing_model_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "http 404" in message or '"code":404' in message or "not found" in message
