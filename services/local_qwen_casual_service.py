@@ -1,0 +1,222 @@
+import asyncio
+import logging
+import os
+import tempfile
+import threading
+import time
+
+from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_LOCAL_QWEN_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+DEFAULT_LOCAL_QWEN_MODEL_FILE = "qwen2.5-0.5b-instruct-q4_0.gguf"
+DEFAULT_LOCAL_QWEN_HISTORY_LIMIT = 6
+DEFAULT_LOCAL_QWEN_CTX = 512
+DEFAULT_LOCAL_QWEN_MAX_TOKENS = 160
+DEFAULT_LOCAL_QWEN_TEMPERATURE = 0.9
+DEFAULT_LOCAL_QWEN_TOP_P = 0.9
+DEFAULT_LOCAL_QWEN_N_BATCH = 64
+LOCAL_QWEN_FAILURE_BACKOFF_SECONDS = 180
+
+_LOCAL_QWEN = None
+_LOCAL_QWEN_LOCK = threading.Lock()
+_LOCAL_QWEN_RETRY_AFTER_TS = 0.0
+
+
+def local_qwen_is_enabled() -> bool:
+    value = os.getenv("LOCAL_QWEN_ENABLED", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+async def get_local_qwen_casual_reply(
+    *,
+    user_message: str,
+    history: list[dict[str, str]] | None,
+    system_prompt: str,
+    mode_instructions: str,
+) -> str | None:
+    global _LOCAL_QWEN_RETRY_AFTER_TS
+
+    if not local_qwen_is_enabled():
+        return None
+
+    if time.time() < _LOCAL_QWEN_RETRY_AFTER_TS:
+        return None
+
+    try:
+        return await asyncio.to_thread(
+            _generate_local_qwen_reply,
+            user_message,
+            history,
+            system_prompt,
+            mode_instructions,
+        )
+    except Exception:
+        logger.exception("[Local Qwen] unavailable")
+        _LOCAL_QWEN_RETRY_AFTER_TS = time.time() + LOCAL_QWEN_FAILURE_BACKOFF_SECONDS
+        return None
+
+
+def _generate_local_qwen_reply(
+    user_message: str,
+    history: list[dict[str, str]] | None,
+    system_prompt: str,
+    mode_instructions: str,
+) -> str | None:
+    llm = _get_local_qwen()
+    messages = _build_messages(
+        history=history,
+        user_message=user_message,
+        system_prompt=system_prompt,
+        mode_instructions=mode_instructions,
+    )
+
+    response = llm.create_chat_completion(
+        messages=messages,
+        temperature=_get_local_qwen_temperature(),
+        top_p=_get_local_qwen_top_p(),
+        max_tokens=_get_local_qwen_max_tokens(),
+    )
+    return _extract_response_text(response)
+
+
+def _get_local_qwen():
+    global _LOCAL_QWEN
+
+    if _LOCAL_QWEN is not None:
+        return _LOCAL_QWEN
+
+    with _LOCAL_QWEN_LOCK:
+        if _LOCAL_QWEN is not None:
+            return _LOCAL_QWEN
+
+        try:
+            from huggingface_hub import hf_hub_download
+            from llama_cpp import Llama
+        except ImportError as exc:
+            raise RuntimeError("Local Qwen dependencies are not installed") from exc
+
+        cache_dir = _get_local_qwen_cache_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        model_repo = os.getenv("LOCAL_QWEN_MODEL_REPO", DEFAULT_LOCAL_QWEN_MODEL_REPO).strip()
+        model_file = os.getenv("LOCAL_QWEN_MODEL_FILE", DEFAULT_LOCAL_QWEN_MODEL_FILE).strip()
+
+        model_path = hf_hub_download(
+            repo_id=model_repo,
+            filename=model_file,
+            cache_dir=str(cache_dir),
+        )
+        logger.info(
+            "[Local Qwen] loading model repo=%s file=%s path=%s",
+            model_repo,
+            model_file,
+            model_path,
+        )
+
+        _LOCAL_QWEN = Llama(
+            model_path=model_path,
+            chat_format="chatml",
+            n_ctx=_get_local_qwen_ctx(),
+            n_threads=_get_local_qwen_threads(),
+            n_batch=_get_local_qwen_n_batch(),
+            n_gpu_layers=0,
+            use_mmap=True,
+            use_mlock=False,
+            verbose=False,
+        )
+        return _LOCAL_QWEN
+
+
+def _build_messages(
+    *,
+    history: list[dict[str, str]] | None,
+    user_message: str,
+    system_prompt: str,
+    mode_instructions: str,
+) -> list[dict[str, str]]:
+    system_message = f"{system_prompt}\n\n{mode_instructions}".strip()
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_message}]
+
+    if history:
+        trimmed_history = history[-_get_local_qwen_history_limit() :]
+        for item in trimmed_history:
+            role = "assistant" if item.get("role") == "assistant" else "user"
+            content = str(item.get("content", "")).strip()
+            if content:
+                messages.append({"role": role, "content": content})
+
+    messages.append({"role": "user", "content": user_message})
+    return messages
+
+
+def _extract_response_text(payload: dict) -> str | None:
+    choices = payload.get("choices") or []
+    if not choices:
+        return None
+
+    message = choices[0].get("message") or {}
+    content = str(message.get("content", "")).strip()
+    return content or None
+
+
+def _get_local_qwen_cache_dir() -> Path:
+    configured = os.getenv("LOCAL_QWEN_CACHE_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return Path(tempfile.gettempdir()) / "grannybot-local-qwen"
+
+
+def _get_local_qwen_ctx() -> int:
+    return _get_positive_int("LOCAL_QWEN_CTX", DEFAULT_LOCAL_QWEN_CTX)
+
+
+def _get_local_qwen_max_tokens() -> int:
+    return _get_positive_int("LOCAL_QWEN_MAX_TOKENS", DEFAULT_LOCAL_QWEN_MAX_TOKENS)
+
+
+def _get_local_qwen_history_limit() -> int:
+    return _get_positive_int("LOCAL_QWEN_HISTORY_LIMIT", DEFAULT_LOCAL_QWEN_HISTORY_LIMIT)
+
+
+def _get_local_qwen_n_batch() -> int:
+    return _get_positive_int("LOCAL_QWEN_N_BATCH", DEFAULT_LOCAL_QWEN_N_BATCH)
+
+
+def _get_local_qwen_threads() -> int:
+    configured = _get_positive_int("LOCAL_QWEN_THREADS", 0)
+    if configured:
+        return configured
+    return max(1, min(2, os.cpu_count() or 1))
+
+
+def _get_local_qwen_temperature() -> float:
+    return _get_positive_float("LOCAL_QWEN_TEMPERATURE", DEFAULT_LOCAL_QWEN_TEMPERATURE)
+
+
+def _get_local_qwen_top_p() -> float:
+    return _get_positive_float("LOCAL_QWEN_TOP_P", DEFAULT_LOCAL_QWEN_TOP_P)
+
+
+def _get_positive_int(env_name: str, default: int) -> int:
+    raw_value = os.getenv(env_name, "").strip()
+    if not raw_value:
+        return default
+    try:
+        parsed = int(raw_value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _get_positive_float(env_name: str, default: float) -> float:
+    raw_value = os.getenv(env_name, "").strip()
+    if not raw_value:
+        return default
+    try:
+        parsed = float(raw_value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default

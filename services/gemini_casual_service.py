@@ -6,6 +6,7 @@ import aiohttp
 
 from pathlib import Path
 from services.casual_chat_service import build_grandma_quick_reply, build_grandma_unavailable_reply
+from services.local_qwen_casual_service import get_local_qwen_casual_reply
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,15 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
     quick_reply = build_grandma_quick_reply(user_message)
     if quick_reply:
         return quick_reply
+
+    local_qwen_reply = await get_local_qwen_casual_reply(
+        user_message=user_message,
+        history=history,
+        system_prompt=SYSTEM_PROMPT,
+        mode_instructions=CASUAL_MODE_INSTRUCTIONS,
+    )
+    if local_qwen_reply:
+        return local_qwen_reply
 
     api_key = _get_gemini_api_key()
     if not api_key:

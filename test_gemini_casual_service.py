@@ -32,6 +32,19 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         gemini_casual_service._GEMINI_RETRY_AFTER_TS = 0.0
 
+    async def test_local_qwen_reply_short_circuits_gemini(self) -> None:
+        with (
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                new=AsyncMock(return_value="local qwen reply"),
+            ),
+            patch.object(gemini_casual_service, "_get_gemini_api_key", side_effect=AssertionError("Gemini should not run")),
+        ):
+            reply = await gemini_casual_service.get_grandma_casual_reply("longer prompt")
+
+        self.assertEqual(reply, "local qwen reply")
+
     async def test_retries_with_fallback_model_after_404(self) -> None:
         fake_debug_path = Mock()
         fake_debug_path.parent.mkdir = Mock()
