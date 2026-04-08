@@ -4,7 +4,14 @@ set -uo pipefail
 
 # Oracle A1 auto-retry launcher for OCI Cloud Shell / OCI CLI.
 #
-# Fill in the values below, then run:
+# Easiest usage in OCI Cloud Shell:
+#   COMPARTMENT_ID='ocid1.tenancy...' \
+#   SUBNET_ID='ocid1.subnet...' \
+#   MAX_ATTEMPTS=60 \
+#   SLEEP_SECONDS=120 \
+#   bash oracle_a1_retry_create.sh
+#
+# Or, if you prefer, you can still edit the defaults below and then run:
 #   bash oracle_a1_retry_create.sh
 #
 # This script is intentionally narrow:
@@ -18,33 +25,33 @@ set -uo pipefail
 # - If you do not have an SSH key yet in Cloud Shell, you can make one with:
 #     ssh-keygen -t ed25519 -f ~/.ssh/oracle_a1 -N ""
 
-COMPARTMENT_ID="ocid1.compartment.oc1..REPLACE_ME"
-SUBNET_ID="ocid1.subnet.oc1..REPLACE_ME"
+COMPARTMENT_ID="${COMPARTMENT_ID:-ocid1.compartment.oc1..REPLACE_ME}"
+SUBNET_ID="${SUBNET_ID:-ocid1.subnet.oc1..REPLACE_ME}"
 
 # Choose ONE of the two SSH key options below.
-SSH_PUBLIC_KEY_VALUE=""
-SSH_PUBLIC_KEY_PATH="$HOME/.ssh/oracle_a1.pub"
+SSH_PUBLIC_KEY_VALUE="${SSH_PUBLIC_KEY_VALUE:-}"
+SSH_PUBLIC_KEY_PATH="${SSH_PUBLIC_KEY_PATH:-$HOME/.ssh/oracle_a1.pub}"
 
-INSTANCE_NAME_PREFIX="granny-a1"
-SHAPE="VM.Standard.A1.Flex"
-OCPU_COUNT=1
-MEMORY_IN_GBS=6
+INSTANCE_NAME_PREFIX="${INSTANCE_NAME_PREFIX:-granny-a1}"
+SHAPE="${SHAPE:-VM.Standard.A1.Flex}"
+OCPU_COUNT="${OCPU_COUNT:-1}"
+MEMORY_IN_GBS="${MEMORY_IN_GBS:-6}"
 
 # Leave IMAGE_ID blank to auto-pick the newest Ubuntu 24.04 image for A1.
-IMAGE_ID=""
-OPERATING_SYSTEM="Canonical Ubuntu"
-OPERATING_SYSTEM_VERSION="24.04"
+IMAGE_ID="${IMAGE_ID:-}"
+OPERATING_SYSTEM="${OPERATING_SYSTEM:-Canonical Ubuntu}"
+OPERATING_SYSTEM_VERSION="${OPERATING_SYSTEM_VERSION:-24.04}"
 
 # Leave AD_NAMES empty to auto-discover all ADs in the current region.
 AD_NAMES=()
 
-MAX_ATTEMPTS=30
-SLEEP_SECONDS=600
-BOOT_WAIT_SECONDS=900
-POLL_INTERVAL_SECONDS=15
+MAX_ATTEMPTS="${MAX_ATTEMPTS:-30}"
+SLEEP_SECONDS="${SLEEP_SECONDS:-600}"
+BOOT_WAIT_SECONDS="${BOOT_WAIT_SECONDS:-900}"
+POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-15}"
 
 # Optional: set this if you want to use a non-default OCI CLI profile.
-OCI_PROFILE=""
+OCI_PROFILE="${OCI_PROFILE:-}"
 
 OCI_CMD=(oci)
 if [[ -n "$OCI_PROFILE" ]]; then
@@ -90,13 +97,13 @@ require_value() {
 }
 
 prepare_ssh_key_file() {
-  if [[ -n "$SSH_PUBLIC_KEY_VALUE" ]]; then
+  if [[ -n "${SSH_PUBLIC_KEY_VALUE:-}" ]]; then
     TEMP_SSH_KEY_FILE="$(mktemp)"
     printf '%s\n' "$SSH_PUBLIC_KEY_VALUE" >"$TEMP_SSH_KEY_FILE"
     SSH_PUBLIC_KEY_PATH="$TEMP_SSH_KEY_FILE"
   fi
 
-  if [[ -z "$SSH_PUBLIC_KEY_PATH" ]]; then
+  if [[ -z "${SSH_PUBLIC_KEY_PATH:-}" ]]; then
     die "Set SSH_PUBLIC_KEY_VALUE or SSH_PUBLIC_KEY_PATH."
   fi
 
