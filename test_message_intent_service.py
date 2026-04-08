@@ -31,6 +31,24 @@ class MessageIntentTests(unittest.TestCase):
         )
         self.assertEqual(intent, "casual")
 
+    def test_group_short_grandma_call_is_not_ignored(self) -> None:
+        intent = classify_message_intent(
+            text="?좊ℓ",
+            chat_type="group",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "casual")
+
+    def test_group_short_noise_still_ignored(self) -> None:
+        intent = classify_message_intent(
+            text="?쇱슂",
+            chat_type="group",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "ignore")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -136,19 +136,27 @@ def classify_message_intent(
     if not normalized:
         return "ignore"
 
+    addressed_to_grandma = _looks_addressed_to_grandma(normalized)
+
     if _looks_like_market_question(normalized):
         return "market"
 
     if _looks_like_unsafe_request(normalized):
         return "unsafe"
 
-    if chat_type != "private" and not replied_to_bot and _looks_like_low_signal_message(normalized):
+    if (
+        chat_type != "private"
+        and not replied_to_bot
+        and not mentioned_bot
+        and not addressed_to_grandma
+        and _looks_like_low_signal_message(normalized)
+    ):
         return "ignore"
 
     if replied_to_bot or mentioned_bot:
         return "casual"
 
-    if _looks_addressed_to_grandma(normalized):
+    if addressed_to_grandma:
         return "casual"
 
     return "ignore"
