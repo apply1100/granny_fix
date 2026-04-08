@@ -36,6 +36,11 @@ GEMINI_BACKOFF_SECONDS = 5  # Reduce backoff to just 5 seconds
 _GEMINI_RETRY_AFTER_TS = 0.0
 
 
+def gemini_casual_is_enabled() -> bool:
+    value = os.getenv("GEMINI_CASUAL_ENABLED", "0").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 async def get_grandma_casual_reply(user_message: str, history: list[dict[str, str]] | None = None) -> str:
     global _GEMINI_RETRY_AFTER_TS
 
@@ -51,6 +56,10 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
     )
     if local_qwen_reply:
         return local_qwen_reply
+
+    if not gemini_casual_is_enabled():
+        logger.info("[Casual Gemini] disabled by configuration")
+        return build_grandma_unavailable_reply(user_message)
 
     api_key = _get_gemini_api_key()
     if not api_key:

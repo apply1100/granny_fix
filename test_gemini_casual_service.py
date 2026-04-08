@@ -32,6 +32,28 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         gemini_casual_service._GEMINI_RETRY_AFTER_TS = 0.0
 
+    async def test_disabled_gemini_returns_unavailable_reply(self) -> None:
+        with (
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                new=AsyncMock(return_value=None),
+            ),
+            patch.object(
+                gemini_casual_service,
+                "build_grandma_unavailable_reply",
+                return_value="fallback reply",
+            ),
+            patch.object(
+                gemini_casual_service,
+                "_get_gemini_api_key",
+                side_effect=AssertionError("Gemini key lookup should not run while disabled"),
+            ),
+        ):
+            reply = await gemini_casual_service.get_grandma_casual_reply("longer prompt")
+
+        self.assertEqual(reply, "fallback reply")
+
     async def test_local_qwen_reply_short_circuits_gemini(self) -> None:
         with (
             patch.object(
@@ -57,6 +79,7 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch.object(gemini_casual_service, "gemini_casual_is_enabled", return_value=True),
             patch.object(gemini_casual_service, "_get_gemini_api_key", return_value="test-key"),
             patch.object(
                 gemini_casual_service,
@@ -78,6 +101,7 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
         request_mock = AsyncMock(side_effect=RuntimeError("Gemini HTTP 500: boom"))
 
         with (
+            patch.object(gemini_casual_service, "gemini_casual_is_enabled", return_value=True),
             patch.object(gemini_casual_service, "_get_gemini_api_key", return_value="test-key"),
             patch.object(gemini_casual_service, "_get_gemini_models", return_value=["only-model"]),
             patch.object(gemini_casual_service, "DEBUG_RESP_PATH", fake_debug_path),
