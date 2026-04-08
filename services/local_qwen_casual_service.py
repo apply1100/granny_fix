@@ -21,11 +21,29 @@ DEFAULT_LOCAL_QWEN_N_BATCH = 64
 LOCAL_QWEN_FAILURE_BACKOFF_SECONDS = 180
 COMPACT_LOCAL_QWEN_HISTORY_LIMIT = 2
 COMPACT_LOCAL_QWEN_MAX_TOKENS = 96
+LOCAL_QWEN_META_LEAK_MARKERS = (
+    "interactions",
+    "system prompt",
+    "developer instructions",
+    "project setup",
+    "assistant",
+    "role",
+    "\uc0ac\uc6a9\uc790\ub294",
+    "\uaddc\uce59",
+    "\uc9c0\uce68",
+    "\ud504\ub86c\ud504\ud2b8",
+    "\uc2dc\uc2a4\ud15c",
+    "\uc5ed\ud560",
+)
 
 _LOCAL_QWEN = None
 _LOCAL_QWEN_LOCK = threading.Lock()
 _LOCAL_QWEN_RETRY_AFTER_TS = 0.0
 _LOCAL_QWEN_LAST_ERROR_MESSAGE: str | None = None
+
+
+class LocalQwenMetaLeakError(RuntimeError):
+    pass
 
 
 def local_qwen_is_enabled() -> bool:
@@ -65,7 +83,11 @@ async def get_local_qwen_casual_reply(
     except Exception as exc:
         logger.exception("[Local Qwen] unavailable")
         _LOCAL_QWEN_LAST_ERROR_MESSAGE = _summarize_local_qwen_error(exc)
-        _LOCAL_QWEN_RETRY_AFTER_TS = time.time() + LOCAL_QWEN_FAILURE_BACKOFF_SECONDS
+        _LOCAL_QWEN_RETRY_AFTER_TS = (
+            time.time() + LOCAL_QWEN_FAILURE_BACKOFF_SECONDS
+            if _should_back_off_local_qwen_error(exc)
+            else 0.0
+        )
         return None
 
 
@@ -121,7 +143,10 @@ def _generate_local_qwen_reply(
             max_tokens=min(COMPACT_LOCAL_QWEN_MAX_TOKENS, _get_local_qwen_max_tokens()),
         )
 
-    return _extract_response_text(response)
+    reply_text = _extract_response_text(response)
+    if reply_text and _looks_like_meta_leakage(reply_text):
+        raise LocalQwenMetaLeakError("Local Qwen produced a meta/system-style reply")
+    return reply_text
 
 
 def _create_local_qwen_completion(*, llm, messages: list[dict[str, str]], max_tokens: int) -> dict:
@@ -213,6 +238,11 @@ def _extract_response_text(payload: dict) -> str | None:
     return content or None
 
 
+def _looks_like_meta_leakage(text: str) -> bool:
+    normalized = " ".join(text.lower().split())
+    return any(marker in normalized for marker in LOCAL_QWEN_META_LEAK_MARKERS)
+
+
 def _get_local_qwen_cache_dir() -> Path:
     configured = os.getenv("LOCAL_QWEN_CACHE_DIR", "").strip()
     if configured:
@@ -274,6 +304,9 @@ def _get_positive_float(env_name: str, default: float) -> float:
 
 
 def _summarize_local_qwen_error(exc: Exception) -> str:
+    if isinstance(exc, LocalQwenMetaLeakError):
+        return "Qwen\uc774 \uba54\ud0c0 \uc124\uba85 \uac19\uc740 \ub2f5\uc744 \ub9cc\ub4e4\uc5b4 \ub2e4\uc2dc \ub9c9\uc558\uc2b5\ub2c8\ub2e4."
+
     raw_message = str(exc).strip().lower()
 
     if "context window" in raw_message or "requested tokens" in raw_message:
@@ -296,3 +329,11 @@ def _summarize_local_qwen_error(exc: Exception) -> str:
 def _is_context_window_error(exc: Exception) -> bool:
     raw_message = str(exc).strip().lower()
     return "context window" in raw_message or "requested tokens" in raw_message
+
+
+def _should_back_off_local_qwen_error(exc: Exception) -> bool:
+    if isinstance(exc, LocalQwenMetaLeakError):
+        return False
+    if _is_context_window_error(exc):
+        return False
+    return True

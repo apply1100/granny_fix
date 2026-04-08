@@ -54,6 +54,34 @@ class LocalQwenContextRetryTests(unittest.TestCase):
         self.assertTrue(message)
         self.assertNotIn("Requested tokens", message)
 
+    def test_meta_style_reply_is_rejected(self) -> None:
+        llm = Mock()
+        llm.create_chat_completion.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "The assistant keeps interactions warm for the user."
+                    }
+                }
+            ]
+        }
+
+        with patch.object(local_qwen_casual_service, "_get_local_qwen", return_value=llm):
+            with self.assertRaises(local_qwen_casual_service.LocalQwenMetaLeakError):
+                local_qwen_casual_service._generate_local_qwen_reply(
+                    user_message="grandma are you okay",
+                    history=[],
+                    system_prompt="Reply like a warm Korean grandmother.",
+                    mode_instructions="Keep the answer brief and natural.",
+                )
+
+    def test_meta_leak_error_does_not_trigger_backoff(self) -> None:
+        should_back_off = local_qwen_casual_service._should_back_off_local_qwen_error(
+            local_qwen_casual_service.LocalQwenMetaLeakError("meta leak")
+        )
+
+        self.assertFalse(should_back_off)
+
 
 if __name__ == "__main__":
     unittest.main()
