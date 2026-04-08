@@ -23,6 +23,7 @@ LOCAL_QWEN_FAILURE_BACKOFF_SECONDS = 180
 _LOCAL_QWEN = None
 _LOCAL_QWEN_LOCK = threading.Lock()
 _LOCAL_QWEN_RETRY_AFTER_TS = 0.0
+_LOCAL_QWEN_LAST_ERROR_MESSAGE: str | None = None
 
 
 def local_qwen_is_enabled() -> bool:
@@ -37,7 +38,7 @@ async def get_local_qwen_casual_reply(
     system_prompt: str,
     mode_instructions: str,
 ) -> str | None:
-    global _LOCAL_QWEN_RETRY_AFTER_TS
+    global _LOCAL_QWEN_LAST_ERROR_MESSAGE, _LOCAL_QWEN_RETRY_AFTER_TS
 
     if not local_qwen_is_enabled():
         return None
@@ -46,17 +47,39 @@ async def get_local_qwen_casual_reply(
         return None
 
     try:
-        return await asyncio.to_thread(
+        reply = await asyncio.to_thread(
             _generate_local_qwen_reply,
             user_message,
             history,
             system_prompt,
             mode_instructions,
         )
-    except Exception:
+        if reply:
+            _LOCAL_QWEN_LAST_ERROR_MESSAGE = None
+            return reply
+
+        _LOCAL_QWEN_LAST_ERROR_MESSAGE = "모델이 비어 있는 답변을 돌려줬습니다."
+        return None
+    except Exception as exc:
         logger.exception("[Local Qwen] unavailable")
+        _LOCAL_QWEN_LAST_ERROR_MESSAGE = _summarize_local_qwen_error(exc)
         _LOCAL_QWEN_RETRY_AFTER_TS = time.time() + LOCAL_QWEN_FAILURE_BACKOFF_SECONDS
         return None
+
+
+def build_local_qwen_error_reply() -> str:
+    if not local_qwen_is_enabled():
+        return "Qwen 오류: 로컬 Qwen 답변 기능이 꺼져 있습니다."
+
+    if time.time() < _LOCAL_QWEN_RETRY_AFTER_TS:
+        wait_seconds = max(1, int(_LOCAL_QWEN_RETRY_AFTER_TS - time.time()))
+        detail = _LOCAL_QWEN_LAST_ERROR_MESSAGE or "최근 오류로 잠시 재시도 대기 중입니다."
+        return f"Qwen 오류: {detail} {wait_seconds}초 뒤에 다시 시도해 주세요."
+
+    if _LOCAL_QWEN_LAST_ERROR_MESSAGE:
+        return f"Qwen 오류: {_LOCAL_QWEN_LAST_ERROR_MESSAGE}"
+
+    return "Qwen 오류: 로컬 Qwen 답변을 만들지 못했습니다."
 
 
 def _generate_local_qwen_reply(
@@ -220,3 +243,21 @@ def _get_positive_float(env_name: str, default: float) -> float:
     except ValueError:
         return default
     return parsed if parsed > 0 else default
+
+
+def _summarize_local_qwen_error(exc: Exception) -> str:
+    raw_message = str(exc).strip().lower()
+
+    if "dependencies are not installed" in raw_message:
+        return "필수 라이브러리가 아직 설치되지 않았습니다."
+    if "libgomp" in raw_message:
+        return "필수 시스템 라이브러리(libgomp)를 찾지 못했습니다."
+    if "401" in raw_message or "403" in raw_message or "404" in raw_message:
+        return "Qwen 모델 파일을 내려받지 못했습니다."
+    if "no space left" in raw_message:
+        return "디스크 공간이 부족합니다."
+    if "memory" in raw_message or "bad alloc" in raw_message or "killed" in raw_message:
+        return "메모리가 부족해 모델을 불러오지 못했습니다."
+    if "model" in raw_message or "llama" in raw_message:
+        return "모델을 불러오지 못했습니다."
+    return "응답 생성 중 오류가 발생했습니다."

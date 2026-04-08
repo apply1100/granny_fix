@@ -6,7 +6,7 @@ import aiohttp
 
 from pathlib import Path
 from services.casual_chat_service import build_grandma_quick_reply, build_grandma_unavailable_reply
-from services.local_qwen_casual_service import get_local_qwen_casual_reply
+from services.local_qwen_casual_service import build_local_qwen_error_reply, get_local_qwen_casual_reply
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
 
     if not gemini_casual_is_enabled():
         logger.info("[Casual Gemini] disabled by configuration")
-        return build_grandma_unavailable_reply(user_message)
+        return build_local_qwen_error_reply()
 
     api_key = _get_gemini_api_key()
     if not api_key:

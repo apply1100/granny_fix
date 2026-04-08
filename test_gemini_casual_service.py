@@ -32,7 +32,7 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         gemini_casual_service._GEMINI_RETRY_AFTER_TS = 0.0
 
-    async def test_disabled_gemini_returns_unavailable_reply(self) -> None:
+    async def test_disabled_gemini_returns_local_qwen_error_reply(self) -> None:
         with (
             patch.object(
                 gemini_casual_service,
@@ -41,8 +41,8 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch.object(
                 gemini_casual_service,
-                "build_grandma_unavailable_reply",
-                return_value="fallback reply",
+                "build_local_qwen_error_reply",
+                return_value="Qwen error",
             ),
             patch.object(
                 gemini_casual_service,
@@ -52,7 +52,7 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
         ):
             reply = await gemini_casual_service.get_grandma_casual_reply("longer prompt")
 
-        self.assertEqual(reply, "fallback reply")
+        self.assertEqual(reply, "Qwen error")
 
     async def test_local_qwen_reply_short_circuits_gemini(self) -> None:
         with (
