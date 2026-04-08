@@ -178,6 +178,15 @@ def build_grandma_quick_reply(text: str) -> str | None:
     if not normalized:
         return None
 
+    if _is_quick_unsettling_request(normalized):
+        return random.choice(
+            (
+                "에구, 그런 말은 사람 놀라니까 하지 마라. 저녁 뭐 먹을지나 심심한 얘기처럼 편한 걸로 다시 말해보거라.",
+                "아이고, 무덤이니 부활이니 그런 소린 듣기만 해도 등골이 서늘하다. 할매한텐 무서운 장난 말고 딴 얘기 해라.",
+                "허허, 그런 으스스한 말은 할매가 못 받겠다. 밥이나 날씨 같은 편한 얘기로 다시 불러보거라.",
+            )
+        )
+
     if _is_quick_food_recommendation(normalized):
         return random.choice(
             (
@@ -230,6 +239,20 @@ def _is_quick_call(text: str) -> bool:
 
 def _is_quick_status_question(text: str) -> bool:
     return _contains_any(text, QUICK_CALL_CUES) and _contains_any(text, QUICK_STATUS_CUES)
+
+
+def _is_quick_unsettling_request(text: str) -> bool:
+    unsettling_cues = (
+        "무덤",
+        "부활",
+        "되살",
+        "살아나라",
+        "좀비",
+        "귀신",
+        "망령",
+        "시체",
+    )
+    return _contains_any(text, QUICK_CALL_CUES) and _contains_any(text, unsettling_cues)
 
 
 def _is_quick_food_recommendation(text: str) -> bool:
