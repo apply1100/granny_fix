@@ -32,6 +32,23 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         gemini_casual_service._GEMINI_RETRY_AFTER_TS = 0.0
 
+    async def test_short_call_now_routes_through_local_qwen_first(self) -> None:
+        with (
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                new=AsyncMock(return_value="qwen short reply"),
+            ),
+            patch.object(
+                gemini_casual_service,
+                "_get_gemini_api_key",
+                side_effect=AssertionError("Gemini should not run"),
+            ),
+        ):
+            reply = await gemini_casual_service.get_grandma_casual_reply("할매")
+
+        self.assertEqual(reply, "qwen short reply")
+
     async def test_disabled_gemini_returns_local_qwen_error_reply(self) -> None:
         with (
             patch.object(

@@ -5,7 +5,7 @@ import logging
 import aiohttp
 
 from pathlib import Path
-from services.casual_chat_service import build_grandma_quick_reply, build_grandma_unavailable_reply
+from services.casual_chat_service import build_grandma_unavailable_reply
 from services.local_qwen_casual_service import build_local_qwen_error_reply, get_local_qwen_casual_reply
 
 
@@ -43,10 +43,6 @@ def gemini_casual_is_enabled() -> bool:
 
 async def get_grandma_casual_reply(user_message: str, history: list[dict[str, str]] | None = None) -> str:
     global _GEMINI_RETRY_AFTER_TS
-
-    quick_reply = build_grandma_quick_reply(user_message)
-    if quick_reply:
-        return quick_reply
 
     local_qwen_reply = await get_local_qwen_casual_reply(
         user_message=user_message,
