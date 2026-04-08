@@ -12,13 +12,15 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LOCAL_QWEN_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
 DEFAULT_LOCAL_QWEN_MODEL_FILE = "qwen2.5-0.5b-instruct-q4_0.gguf"
-DEFAULT_LOCAL_QWEN_HISTORY_LIMIT = 6
-DEFAULT_LOCAL_QWEN_CTX = 512
+DEFAULT_LOCAL_QWEN_HISTORY_LIMIT = 4
+DEFAULT_LOCAL_QWEN_CTX = 1024
 DEFAULT_LOCAL_QWEN_MAX_TOKENS = 160
 DEFAULT_LOCAL_QWEN_TEMPERATURE = 0.9
 DEFAULT_LOCAL_QWEN_TOP_P = 0.9
 DEFAULT_LOCAL_QWEN_N_BATCH = 64
 LOCAL_QWEN_FAILURE_BACKOFF_SECONDS = 180
+COMPACT_LOCAL_QWEN_HISTORY_LIMIT = 2
+COMPACT_LOCAL_QWEN_MAX_TOKENS = 96
 
 _LOCAL_QWEN = None
 _LOCAL_QWEN_LOCK = threading.Lock()
@@ -96,13 +98,39 @@ def _generate_local_qwen_reply(
         mode_instructions=mode_instructions,
     )
 
-    response = llm.create_chat_completion(
+    try:
+        response = _create_local_qwen_completion(
+            llm=llm,
+            messages=messages,
+            max_tokens=_get_local_qwen_max_tokens(),
+        )
+    except ValueError as exc:
+        if not _is_context_window_error(exc):
+            raise
+
+        logger.warning("[Local Qwen] context overflow, retrying with compact prompt")
+        compact_messages = _build_messages(
+            history=(history or [])[-COMPACT_LOCAL_QWEN_HISTORY_LIMIT:],
+            user_message=user_message,
+            system_prompt=system_prompt,
+            mode_instructions=mode_instructions,
+        )
+        response = _create_local_qwen_completion(
+            llm=llm,
+            messages=compact_messages,
+            max_tokens=min(COMPACT_LOCAL_QWEN_MAX_TOKENS, _get_local_qwen_max_tokens()),
+        )
+
+    return _extract_response_text(response)
+
+
+def _create_local_qwen_completion(*, llm, messages: list[dict[str, str]], max_tokens: int) -> dict:
+    return llm.create_chat_completion(
         messages=messages,
         temperature=_get_local_qwen_temperature(),
         top_p=_get_local_qwen_top_p(),
-        max_tokens=_get_local_qwen_max_tokens(),
+        max_tokens=max_tokens,
     )
-    return _extract_response_text(response)
 
 
 def _get_local_qwen():
@@ -248,6 +276,8 @@ def _get_positive_float(env_name: str, default: float) -> float:
 def _summarize_local_qwen_error(exc: Exception) -> str:
     raw_message = str(exc).strip().lower()
 
+    if "context window" in raw_message or "requested tokens" in raw_message:
+        return "질문이 길어서 현재 Qwen 문맥 창 크기를 넘겼습니다."
     if "dependencies are not installed" in raw_message:
         return "필수 라이브러리가 아직 설치되지 않았습니다."
     if "libgomp" in raw_message:
@@ -261,3 +291,8 @@ def _summarize_local_qwen_error(exc: Exception) -> str:
     if "model" in raw_message or "llama" in raw_message:
         return "모델을 불러오지 못했습니다."
     return "응답 생성 중 오류가 발생했습니다."
+
+
+def _is_context_window_error(exc: Exception) -> bool:
+    raw_message = str(exc).strip().lower()
+    return "context window" in raw_message or "requested tokens" in raw_message
