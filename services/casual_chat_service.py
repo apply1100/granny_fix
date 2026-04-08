@@ -178,6 +178,15 @@ def build_grandma_quick_reply(text: str) -> str | None:
     if not normalized:
         return None
 
+    if _is_quick_food_recommendation(normalized):
+        return random.choice(
+            (
+                "에구, 저녁거리면 너무 거창한 건 말고 계란말이에 된장국 하나 놓고 김치랑 먹어도 속이 편하단다.",
+                "할매 같으면 저녁엔 된장찌개나 김치찌개에 두부 좀 넣고 밥 한 그릇 먹겠다. 반찬은 멸치나 계란이면 충분허다.",
+                "오늘 저녁은 너무 복잡하게 말고 비빔밥이나 볶음밥처럼 한 그릇으로 끝나는 게 낫겠다. 국물 땡기면 어묵탕도 괜찮다.",
+            )
+        )
+
     if _is_quick_status_question(normalized):
         return random.choice(
             (
@@ -221,3 +230,24 @@ def _is_quick_call(text: str) -> bool:
 
 def _is_quick_status_question(text: str) -> bool:
     return _contains_any(text, QUICK_CALL_CUES) and _contains_any(text, QUICK_STATUS_CUES)
+
+
+def _is_quick_food_recommendation(text: str) -> bool:
+    food_cues = (
+        "메뉴",
+        "밥",
+        "먹을거",
+        "먹을 거",
+        "먹을게",
+        "먹을 게",
+        "저녁",
+        "점심",
+        "아침",
+        "야식",
+        "반찬",
+    )
+    return (
+        _contains_any(text, QUICK_CALL_CUES)
+        and _contains_any(text, food_cues)
+        and _contains_any(text, RECOMMEND_CUES)
+    )
