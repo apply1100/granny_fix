@@ -32,12 +32,12 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         gemini_casual_service._GEMINI_RETRY_AFTER_TS = 0.0
 
-    async def test_short_call_now_routes_through_local_qwen_first(self) -> None:
+    async def test_short_call_uses_quick_reply_before_local_qwen(self) -> None:
         with (
             patch.object(
                 gemini_casual_service,
                 "get_local_qwen_casual_reply",
-                new=AsyncMock(return_value="qwen short reply"),
+                side_effect=AssertionError("Local Qwen should not run"),
             ),
             patch.object(
                 gemini_casual_service,
@@ -47,7 +47,38 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
         ):
             reply = await gemini_casual_service.get_grandma_casual_reply("할매")
 
-        self.assertEqual(reply, "qwen short reply")
+        self.assertIn(
+            reply,
+            {
+                "왜 그러느냐, 할매 여기 있다.",
+                "응, 불렀느냐. 할매 왔다.",
+                "허허, 여기 있지. 무슨 일 있느냐.",
+            },
+        )
+
+    async def test_short_complaint_uses_quick_reply_before_local_qwen(self) -> None:
+        with (
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                side_effect=AssertionError("Local Qwen should not run"),
+            ),
+            patch.object(
+                gemini_casual_service,
+                "_get_gemini_api_key",
+                side_effect=AssertionError("Gemini should not run"),
+            ),
+        ):
+            reply = await gemini_casual_service.get_grandma_casual_reply("할매 정신차려")
+
+        self.assertIn(
+            reply,
+            {
+                "에구, 우리 손주 성났구나. 할매가 숨 한 번 고르고 다시 들을 테니 천천히 말해 보거라.",
+                "허허, 그리 타박하면 할매도 마음이 철렁한다. 뭘 원하는지만 짧게 말해 주면 다시 맞춰 보마.",
+                "아이고, 할매가 좀 헤맸구나. 화는 조금 내려놓고 하고 싶은 말을 한 줄로만 다시 줘 보거라.",
+            },
+        )
 
     async def test_disabled_gemini_returns_local_qwen_error_reply(self) -> None:
         with (
@@ -96,6 +127,11 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                new=AsyncMock(return_value=None),
+            ),
             patch.object(gemini_casual_service, "gemini_casual_is_enabled", return_value=True),
             patch.object(gemini_casual_service, "_get_gemini_api_key", return_value="test-key"),
             patch.object(
@@ -106,7 +142,7 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
             patch.object(gemini_casual_service, "DEBUG_RESP_PATH", fake_debug_path),
             patch.object(gemini_casual_service, "_request_gemini_response", new=request_mock),
         ):
-            reply = await gemini_casual_service.get_grandma_casual_reply("할매")
+            reply = await gemini_casual_service.get_grandma_casual_reply("오늘 좀 이상하다")
 
         self.assertEqual(reply, "할매가 왔다.")
         self.assertEqual(request_mock.await_count, 2)
@@ -118,6 +154,11 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
         request_mock = AsyncMock(side_effect=RuntimeError("Gemini HTTP 500: boom"))
 
         with (
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                new=AsyncMock(return_value=None),
+            ),
             patch.object(gemini_casual_service, "gemini_casual_is_enabled", return_value=True),
             patch.object(gemini_casual_service, "_get_gemini_api_key", return_value="test-key"),
             patch.object(gemini_casual_service, "_get_gemini_models", return_value=["only-model"]),
@@ -125,7 +166,7 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
             patch.object(gemini_casual_service, "_request_gemini_response", new=request_mock),
             patch.object(gemini_casual_service, "build_grandma_unavailable_reply", return_value="fallback reply"),
         ):
-            reply = await gemini_casual_service.get_grandma_casual_reply("할매")
+            reply = await gemini_casual_service.get_grandma_casual_reply("오늘 좀 이상하다")
 
         self.assertEqual(reply, "fallback reply")
         self.assertNotIn("Gemini HTTP", reply)

@@ -1,0 +1,17 @@
+[Unit]
+Description=Grannybot Telegram bot
+After=network-online.target ollama.service
+Wants=network-online.target ollama.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/grannybot
+EnvironmentFile=/opt/grannybot/.env
+ExecStartPre=/usr/bin/bash /opt/grannybot/deploy/ubuntu/wait_for_ollama.sh /opt/grannybot/.env
+ExecStart=/opt/grannybot/.venv-server/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

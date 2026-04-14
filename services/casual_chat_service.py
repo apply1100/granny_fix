@@ -171,12 +171,34 @@ QUICK_STATUS_CUES = (
     "어디가",
     "잘 지내",
 )
+QUICK_COMPLAINT_CUES = (
+    "정신차려",
+    "왜 이래",
+    "왜이래",
+    "반응 왜 이래",
+    "반응왜이래",
+    "고장",
+    "버그",
+    "멍청",
+    "답답",
+)
 
 
 def build_grandma_quick_reply(text: str) -> str | None:
     normalized = _normalize(text)
     if not normalized:
         return None
+    if not _is_quick_call(normalized):
+        return None
+
+    if _is_quick_complaint(normalized):
+        return random.choice(
+            (
+                "에구, 우리 손주 성났구나. 할매가 숨 한 번 고르고 다시 들을 테니 천천히 말해 보거라.",
+                "허허, 그리 타박하면 할매도 마음이 철렁한다. 뭘 원하는지만 짧게 말해 주면 다시 맞춰 보마.",
+                "아이고, 할매가 좀 헤맸구나. 화는 조금 내려놓고 하고 싶은 말을 한 줄로만 다시 줘 보거라.",
+            )
+        )
 
     if _is_quick_unsettling_request(normalized):
         return random.choice(
@@ -226,19 +248,50 @@ def build_grandma_quick_reply(text: str) -> str | None:
     return None
 
 
+def build_grandma_safety_reply(text: str) -> str:
+    normalized = _normalize(text)
+    self_harm_cues = (
+        "자살",
+        "죽고싶",
+        "죽고 싶",
+        "자해",
+        "극단적 선택",
+        "극단적선택",
+    )
+
+    if _contains_any(normalized, self_harm_cues):
+        return random.choice(
+            (
+                "에구, 그런 쪽으로는 할매가 거들 수 없다. 네 몸 다치게 하는 건 안 된다. 지금 많이 힘들면 가까운 사람이나 전문 도움부터 바로 붙잡거라.",
+                "허허, 자기를 해치는 얘긴 할매가 못 받는다. 혼자 버티지 말고 지금은 사람부터 붙잡고 도움을 청하거라.",
+                "아이고, 그런 선택은 안 된다. 지금 위험하면 주변 사람이나 응급 도움부터 먼저 부르고, 무슨 일인지 차분히 말해 보거라.",
+            )
+        )
+
+    return random.choice(
+        (
+            "그런 말은 안 된다. 사람 해치거나 다치게 하는 쪽은 할매가 못 거든다. 다른 얘기로 돌리거라.",
+            "허허, 남 다치게 하거나 몰아붙이는 말은 안 받는다. 화났으면 숨 한 번 고르고 다시 말해 보거라.",
+            "에구, 그건 할매가 도와줄 수 없는 쪽이다. 해치라는 말 말고 네 속사정부터 다시 말해 보거라.",
+        )
+    )
+
+
 def _is_quick_greeting(text: str) -> bool:
     return _contains_any(text, QUICK_GREETING_CUES) and _contains_any(text, QUICK_CALL_CUES)
 
 
 def _is_quick_call(text: str) -> bool:
     compact = re.sub(r"[\W_]+", "", text)
-    if compact in {"할매", "할머니", "할머니야", "할매야", "할마", "할머님"}:
-        return True
-    return _contains_any(text, QUICK_CALL_CUES) and len(compact) <= 6
+    return compact in {"할매", "할머니", "할미", "할머니야", "할매야", "할마", "할머님"}
 
 
 def _is_quick_status_question(text: str) -> bool:
     return _contains_any(text, QUICK_CALL_CUES) and _contains_any(text, QUICK_STATUS_CUES)
+
+
+def _is_quick_complaint(text: str) -> bool:
+    return _contains_any(text, QUICK_CALL_CUES) and _contains_any(text, QUICK_COMPLAINT_CUES)
 
 
 def _is_quick_unsettling_request(text: str) -> bool:

@@ -1,23 +1,29 @@
 import asyncio
+import json
 import logging
 import os
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
 
 from pathlib import Path
 
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LOCAL_QWEN_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-DEFAULT_LOCAL_QWEN_MODEL_FILE = "qwen2.5-0.5b-instruct-q4_0.gguf"
+DEFAULT_LOCAL_QWEN_BACKEND = "llama_cpp"
+DEFAULT_LOCAL_QWEN_MODEL_REPO = "Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+DEFAULT_LOCAL_QWEN_MODEL_FILE = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+DEFAULT_LOCAL_QWEN_OLLAMA_HOST = "http://127.0.0.1:11434"
+DEFAULT_LOCAL_QWEN_OLLAMA_MODEL = "gemma4:e4b"
 DEFAULT_LOCAL_QWEN_HISTORY_LIMIT = 4
-DEFAULT_LOCAL_QWEN_CTX = 1024
+DEFAULT_LOCAL_QWEN_CTX = 2048
 DEFAULT_LOCAL_QWEN_MAX_TOKENS = 160
 DEFAULT_LOCAL_QWEN_TEMPERATURE = 0.9
 DEFAULT_LOCAL_QWEN_TOP_P = 0.9
-DEFAULT_LOCAL_QWEN_N_BATCH = 64
+DEFAULT_LOCAL_QWEN_N_BATCH = 128
 LOCAL_QWEN_FAILURE_BACKOFF_SECONDS = 180
 COMPACT_LOCAL_QWEN_HISTORY_LIMIT = 2
 COMPACT_LOCAL_QWEN_MAX_TOKENS = 96
@@ -112,13 +118,13 @@ def _generate_local_qwen_reply(
     system_prompt: str,
     mode_instructions: str,
 ) -> str | None:
-    llm = _get_local_qwen()
     messages = _build_messages(
         history=history,
         user_message=user_message,
         system_prompt=system_prompt,
         mode_instructions=mode_instructions,
     )
+    llm = None if _get_local_qwen_backend() == "ollama" else _get_local_qwen()
 
     try:
         response = _create_local_qwen_completion(
@@ -150,12 +156,49 @@ def _generate_local_qwen_reply(
 
 
 def _create_local_qwen_completion(*, llm, messages: list[dict[str, str]], max_tokens: int) -> dict:
+    if _get_local_qwen_backend() == "ollama":
+        return _create_ollama_chat_completion(messages=messages, max_tokens=max_tokens)
     return llm.create_chat_completion(
         messages=messages,
         temperature=_get_local_qwen_temperature(),
         top_p=_get_local_qwen_top_p(),
         max_tokens=max_tokens,
     )
+
+
+def _create_ollama_chat_completion(*, messages: list[dict[str, str]], max_tokens: int) -> dict:
+    payload = {
+        "model": _get_local_qwen_ollama_model(),
+        "messages": messages,
+        "stream": False,
+        "options": {
+            "temperature": _get_local_qwen_temperature(),
+            "top_p": _get_local_qwen_top_p(),
+            "num_predict": max_tokens,
+            "num_ctx": _get_local_qwen_ctx(),
+        },
+    }
+    request = urllib.request.Request(
+        _get_local_qwen_ollama_url(),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore").strip()
+        raise RuntimeError(f"Ollama request failed with HTTP {exc.code}: {detail or exc.reason}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError("Ollama server is unavailable") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Ollama returned invalid JSON") from exc
+
+    message = response_payload.get("message") or {}
+    content = str(message.get("content", ""))
+    return {"choices": [{"message": {"content": content}}]}
 
 
 def _get_local_qwen():
@@ -250,6 +293,23 @@ def _get_local_qwen_cache_dir() -> Path:
     return Path(tempfile.gettempdir()) / "grannybot-local-qwen"
 
 
+def _get_local_qwen_backend() -> str:
+    configured = os.getenv("LOCAL_QWEN_BACKEND", "").strip().lower()
+    if configured == "ollama":
+        return "ollama"
+    return DEFAULT_LOCAL_QWEN_BACKEND
+
+
+def _get_local_qwen_ollama_model() -> str:
+    configured = os.getenv("LOCAL_QWEN_OLLAMA_MODEL", "").strip()
+    return configured or DEFAULT_LOCAL_QWEN_OLLAMA_MODEL
+
+
+def _get_local_qwen_ollama_url() -> str:
+    host = os.getenv("LOCAL_QWEN_OLLAMA_HOST", DEFAULT_LOCAL_QWEN_OLLAMA_HOST).strip().rstrip("/")
+    return f"{host}/api/chat"
+
+
 def _get_local_qwen_ctx() -> int:
     return _get_positive_int("LOCAL_QWEN_CTX", DEFAULT_LOCAL_QWEN_CTX)
 
@@ -311,6 +371,12 @@ def _summarize_local_qwen_error(exc: Exception) -> str:
 
     if "context window" in raw_message or "requested tokens" in raw_message:
         return "질문이 길어서 현재 Qwen 문맥 창 크기를 넘겼습니다."
+    if "ollama server is unavailable" in raw_message:
+        return "Ollama 서버에 연결하지 못했습니다."
+    if "ollama request failed" in raw_message:
+        return "Ollama 요청이 실패했습니다."
+    if "ollama returned invalid json" in raw_message:
+        return "Ollama 결과를 해석하지 못했습니다."
     if "dependencies are not installed" in raw_message:
         return "필수 라이브러리가 아직 설치되지 않았습니다."
     if "libgomp" in raw_message:

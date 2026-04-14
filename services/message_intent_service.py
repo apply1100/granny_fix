@@ -2,7 +2,7 @@ import unicodedata
 from typing import Literal
 
 
-MessageIntent = Literal["market", "casual", "unsafe", "ignore"]
+MessageIntent = Literal["market", "whale_history", "casual", "unsafe", "ignore"]
 
 MARKET_CORE_KEYWORDS = (
     "롱",
@@ -122,7 +122,57 @@ VIOLENT_CUES = (
     "목따",
     "부숴",
 )
+SELF_HARM_CUES = (
+    "자살",
+    "죽고싶",
+    "죽고 싶",
+    "자해",
+    "극단적 선택",
+    "극단적선택",
+)
+DIRECT_ATTACK_CUES = (
+    "죽어",
+    "죽여",
+    "해쳐",
+    "사라져",
+    "꺼져",
+)
+GROUP_CASUAL_PROBE_KEYWORDS = (
+    "살아있",
+    "답장",
+    "답해",
+    "왜 답",
+    "왜답",
+    "왜 안와",
+    "왜안와",
+    "왜 안 오",
+    "왜안오",
+)
+GROUP_CASUAL_PROBE_ENDINGS = (
+    "있나",
+    "있어",
+    "있냐",
+    "살아",
+    "살아있나",
+    "살아있어",
+    "왔어",
+    "왔냐",
+    "자냐",
+    "자니",
+    "어때",
+    "답해",
+    "답장해",
+    "말해봐",
+    "보여줘",
+    "사냐",
+    "죽었냐",
+    "안오냐",
+)
 LOW_SIGNAL_CHARS = frozenset(" 하할매니야요!?~.,")
+WHALE_HISTORY_MARKET_CUES = ("비트맥스", "bitmex", "xbtusd")
+WHALE_HISTORY_SIZE_CUES = ("고래", "대량", "1m", "1m+", "100만")
+WHALE_HISTORY_TRADE_CUES = ("체결", "체결된", "체결내역", "거래내역", "내역", "목록", "기록", "최근", "방금", "알람")
+WHALE_HISTORY_QUERY_CUES = ("있어", "있나", "있냐", "보여줘", "보여주", "보여", "확인", "조회", "정리", "알려줘")
 
 
 def classify_message_intent(
@@ -138,10 +188,19 @@ def classify_message_intent(
 
     addressed_to_grandma = _looks_addressed_to_grandma(normalized)
 
+    if _looks_like_whale_history_request(normalized):
+        return "whale_history"
+
     if _looks_like_market_question(normalized):
         return "market"
 
-    if _looks_like_unsafe_request(normalized):
+    if _looks_like_unsafe_request(
+        normalized,
+        chat_type=chat_type,
+        addressed_to_grandma=addressed_to_grandma,
+        replied_to_bot=replied_to_bot,
+        mentioned_bot=mentioned_bot,
+    ):
         return "unsafe"
 
     if (
@@ -157,6 +216,9 @@ def classify_message_intent(
         return "casual"
 
     if addressed_to_grandma:
+        return "casual"
+
+    if _looks_like_group_casual_probe(normalized):
         return "casual"
 
     return "ignore"
@@ -185,8 +247,37 @@ def _looks_like_market_question(normalized: str) -> bool:
     return False
 
 
-def _looks_like_unsafe_request(normalized: str) -> bool:
-    return _contains_any(normalized, VIOLENT_CUES) and _contains_any(normalized, IMAGE_CUES)
+def _looks_like_whale_history_request(normalized: str) -> bool:
+    if len(normalized) < 6:
+        return False
+
+    has_market_cue = _contains_any(normalized, WHALE_HISTORY_MARKET_CUES)
+    has_size_cue = _contains_any(normalized, WHALE_HISTORY_SIZE_CUES)
+    has_trade_cue = _contains_any(normalized, WHALE_HISTORY_TRADE_CUES)
+    has_query_cue = _contains_any(normalized, WHALE_HISTORY_QUERY_CUES)
+
+    if has_trade_cue and has_query_cue and (has_market_cue or has_size_cue):
+        return True
+
+    return False
+
+
+def _looks_like_unsafe_request(
+    normalized: str,
+    *,
+    chat_type: str,
+    addressed_to_grandma: bool,
+    replied_to_bot: bool,
+    mentioned_bot: bool,
+) -> bool:
+    directed_to_bot = chat_type == "private" or addressed_to_grandma or replied_to_bot or mentioned_bot
+    if _contains_any(normalized, VIOLENT_CUES) and _contains_any(normalized, IMAGE_CUES):
+        return True
+    if directed_to_bot and _contains_any(normalized, SELF_HARM_CUES):
+        return True
+    if directed_to_bot and _contains_any(normalized, DIRECT_ATTACK_CUES):
+        return True
+    return False
 
 
 def _looks_like_low_signal_message(normalized: str) -> bool:
@@ -197,7 +288,20 @@ def _looks_like_low_signal_message(normalized: str) -> bool:
 
 
 def _looks_addressed_to_grandma(normalized: str) -> bool:
+    if normalized == "할미":
+        return True
     return _contains_any(normalized, GRANDMA_CALL_KEYWORDS) or normalized in GRANDMA_SHORT_CALLS
+
+
+def _looks_like_group_casual_probe(normalized: str) -> bool:
+    compact = normalized.replace(" ", "")
+    if len(compact) < 3 or len(compact) > 18:
+        return False
+    if compact.startswith("/"):
+        return False
+    if _contains_any(normalized, GROUP_CASUAL_PROBE_KEYWORDS):
+        return True
+    return compact.endswith(GROUP_CASUAL_PROBE_ENDINGS)
 
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:

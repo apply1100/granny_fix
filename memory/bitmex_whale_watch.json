@@ -1,5 +1,9 @@
 {
-  "chat_ids": [],
+  "chat_ids": [
+    -1001748530937,
+    -1003643470349,
+    -1001826538435
+  ],
   "seen_trade_ids": [],
-  "primed": false
+  "primed": true
 }

@@ -5,8 +5,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 
 API_BASE_URL = "https://api.coinalyze.net/v1"
@@ -14,9 +13,10 @@ DEFAULT_INTERVAL = "5min"
 LOOKBACK_MINUTES = 60
 WINDOW_BARS = 3
 _SYMBOL_CACHE = None
-SEOUL_TZ = ZoneInfo("Asia/Seoul")
+SEOUL_TZ = timezone(timedelta(hours=9), "KST")
 ANALYSIS_CACHE_TTL_SECONDS = 15
 _ANALYSIS_CACHE = {"expires_at": 0.0, "analysis": None}
+_DIRECT_HTTP_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 class CoinalyzeError(RuntimeError):
@@ -434,7 +434,7 @@ def _request_json(api_key: str, path: str, params: dict) -> list[dict]:
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
 
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with _DIRECT_HTTP_OPENER.open(request, timeout=10) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         if exc.code == 401:

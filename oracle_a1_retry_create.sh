@@ -34,8 +34,8 @@ SSH_PUBLIC_KEY_PATH="${SSH_PUBLIC_KEY_PATH:-$HOME/.ssh/oracle_a1.pub}"
 
 INSTANCE_NAME_PREFIX="${INSTANCE_NAME_PREFIX:-granny-a1}"
 SHAPE="${SHAPE:-VM.Standard.A1.Flex}"
-OCPU_COUNT="${OCPU_COUNT:-1}"
-MEMORY_IN_GBS="${MEMORY_IN_GBS:-6}"
+OCPU_COUNT="${OCPU_COUNT:-2}"
+MEMORY_IN_GBS="${MEMORY_IN_GBS:-24}"
 
 # Leave IMAGE_ID blank to auto-pick the newest Ubuntu 24.04 image for A1.
 IMAGE_ID="${IMAGE_ID:-}"
