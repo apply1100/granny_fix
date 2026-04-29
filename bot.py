@@ -1365,7 +1365,29 @@ def _build_bitmex_excluded_market_reply() -> str:
     )
 
 
+def _should_skip_polling_for_runtime() -> bool:
+    if os.getenv("ALLOW_RAILWAY_POLLING_BOT", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return False
+
+    return any(
+        os.getenv(name)
+        for name in (
+            "RAILWAY_ENVIRONMENT",
+            "RAILWAY_PROJECT_ID",
+            "RAILWAY_SERVICE_ID",
+            "RAILWAY_DEPLOYMENT_ID",
+        )
+    )
+
+
 async def main():
+    if _should_skip_polling_for_runtime():
+        logger.warning(
+            "Railway runtime detected; exiting without Telegram polling. "
+            "Set ALLOW_RAILWAY_POLLING_BOT=1 to override."
+        )
+        return
+
     if not TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN is missing")
         raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")

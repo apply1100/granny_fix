@@ -19,6 +19,23 @@ class DummyForbidden(TelegramForbiddenError):
         self.method = None
 
 
+class RuntimeGuardTests(unittest.TestCase):
+    def test_railway_runtime_skips_polling_by_default(self) -> None:
+        with patch.dict("os.environ", {"RAILWAY_PROJECT_ID": "project"}, clear=True):
+            self.assertTrue(bot._should_skip_polling_for_runtime())
+
+    def test_railway_runtime_can_be_overridden(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "RAILWAY_PROJECT_ID": "project",
+                "ALLOW_RAILWAY_POLLING_BOT": "1",
+            },
+            clear=True,
+        ):
+            self.assertFalse(bot._should_skip_polling_for_runtime())
+
+
 class SafeAnswerTests(unittest.IsolatedAsyncioTestCase):
     async def test_safe_answer_returns_true_on_success(self) -> None:
         message = SimpleNamespace(
