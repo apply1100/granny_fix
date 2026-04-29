@@ -432,7 +432,7 @@ async def watchwhales(message: Message):
     if configured:
         await _safe_answer(
             message,
-            "이 채팅방은 Railway 고정 등록으로 이미 BitMEX 자동 알림을 받고 있습니다.\n"
+            "이 채팅방은 서버 고정 등록으로 이미 BitMEX 자동 알림을 받고 있습니다.\n"
             "- 재배포 후에도 유지됩니다.\n"
             "- 현재 상태는 /trackstatus 로 다시 확인할 수 있습니다."
         )
@@ -451,7 +451,7 @@ async def unwatchwhales(message: Message):
             await _safe_answer(
                 message,
                 "이 채팅방의 수동 등록은 해제했습니다.\n"
-                "- 다만 Railway 환경변수 BITMEX_ALERT_CHAT_IDS 에도 들어 있어서 알림은 계속 올 수 있습니다.\n"
+                "- 다만 서버 환경변수 BITMEX_ALERT_CHAT_IDS 에도 들어 있어서 알림은 계속 올 수 있습니다.\n"
                 "- 완전히 끄려면 그 변수에서 현재 chat_id를 빼야 합니다."
             )
             return
@@ -463,9 +463,9 @@ async def unwatchwhales(message: Message):
     if configured:
         await _safe_answer(
             message,
-            "이 채팅방은 Railway 환경변수 BITMEX_ALERT_CHAT_IDS 로 고정 등록돼 있습니다.\n"
+            "이 채팅방은 서버 환경변수 BITMEX_ALERT_CHAT_IDS 로 고정 등록돼 있습니다.\n"
             "- 현재 chat_id는 /chatid 로 볼 수 있습니다.\n"
-            "- 완전히 끄려면 Railway 변수에서 그 chat_id를 빼 주세요."
+            "- 완전히 끄려면 서버 변수에서 그 chat_id를 빼 주세요."
         )
         return
 
@@ -494,7 +494,7 @@ async def trackstatus(message: Message):
     ]
 
     if configured_enabled:
-        lines.append("- 메모: Railway 환경변수에 등록돼 있어 재배포 후에도 유지됩니다.")
+        lines.append("- 메모: 서버 환경변수에 등록돼 있어 재배포 후에도 유지됩니다.")
     elif enabled and auto_register_enabled:
         lines.append("- 메모: 현재는 런타임 등록입니다. 재배포 후에도 /trackstatus, /bitmexwhale, /coinalyze 또는 BitMEX 질문이 오면 자동으로 다시 붙습니다.")
     elif enabled:
@@ -788,9 +788,9 @@ def _is_terminal_chat_error(exc: TelegramBadRequest) -> bool:
 
 def _describe_subscription_source(runtime_enabled: bool, configured_enabled: bool) -> str:
     if runtime_enabled and configured_enabled:
-        return "수동 등록 + Railway 고정 등록"
+        return "수동 등록 + 서버 고정 등록"
     if configured_enabled:
-        return "Railway 고정 등록"
+        return "서버 고정 등록"
     if runtime_enabled:
         return "수동 등록"
     return "미등록"
@@ -1383,7 +1383,7 @@ def _should_skip_polling_for_runtime() -> bool:
 async def main():
     if _should_skip_polling_for_runtime():
         logger.warning(
-            "Railway runtime detected; exiting without Telegram polling. "
+            "Disabled deployment runtime detected; exiting without Telegram polling. "
             "Set ALLOW_RAILWAY_POLLING_BOT=1 to override."
         )
         return

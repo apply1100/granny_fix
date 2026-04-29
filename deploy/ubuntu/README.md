@@ -1,6 +1,6 @@
 # Ubuntu deployment
 
-This bot can run directly on an Ubuntu server without Railway.
+This bot runs directly on an Ubuntu server through systemd.
 
 Recommended layout:
 
