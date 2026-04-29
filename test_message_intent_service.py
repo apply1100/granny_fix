@@ -49,6 +49,15 @@ class MessageIntentTests(unittest.TestCase):
         )
         self.assertEqual(intent, "market")
 
+    def test_position_lament_with_analysis_request_routes_to_market(self) -> None:
+        intent = classify_message_intent(
+            text="할머니 숏 못쳤는데 지금 자리 봐줘",
+            chat_type="group",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "market")
+
     def test_bitmex_exclusion_is_detected_without_losing_market_intent(self) -> None:
         text = "할머니 비트코인 어때 보여 대신 비트맥스 그거 쓰지말고 대답해줘"
 

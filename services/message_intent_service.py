@@ -105,6 +105,20 @@ POSITION_LAMENT_CUES = (
     "망했",
     "후회",
 )
+POSITION_ANALYSIS_REQUEST_CUES = (
+    "자리",
+    "차트",
+    "방향",
+    "추세",
+    "봐줘",
+    "분석",
+    "체크",
+    "확인",
+    "어때",
+    "어떨까",
+    "어케 봐",
+    "어떻게 봐",
+)
 GRANDMA_CALL_KEYWORDS = (
     "할매",
     "할머니",
@@ -303,6 +317,8 @@ def _looks_like_market_question(normalized: str) -> bool:
 
 
 def _looks_like_position_lament(normalized: str) -> bool:
+    if _contains_any(normalized, POSITION_ANALYSIS_REQUEST_CUES):
+        return False
     return _contains_any(normalized, POSITION_WORDS) and _contains_any(
         normalized,
         POSITION_LAMENT_CUES,
