@@ -43,6 +43,19 @@ sudo journalctl -u grannybot -n 100 --no-pager
 ollama list
 ```
 
+Updating an existing server:
+
+```bash
+sudo systemctl stop grannybot
+tar -xzf /tmp/grannybot-deploy.tar.gz -C /opt/grannybot
+sudo chown -R ubuntu:ubuntu /opt/grannybot
+sudo systemctl start grannybot
+```
+
+Extract updates as the service user, or run the `chown` line before restart.
+Do not deploy `memory/*.json` or log files from git; they are runtime state and
+must stay writable by the `grannybot.service` user.
+
 Important operational notes:
 
 - Run only one polling bot at a time. If your Windows PC is still running `bot.py`, the Ubuntu server can hit Telegram polling conflicts.
