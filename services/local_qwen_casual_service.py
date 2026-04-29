@@ -21,7 +21,7 @@ DEFAULT_LOCAL_QWEN_OLLAMA_MODEL = "gemma4:e4b"
 DEFAULT_LOCAL_QWEN_HISTORY_LIMIT = 4
 DEFAULT_LOCAL_QWEN_CTX = 2048
 DEFAULT_LOCAL_QWEN_MAX_TOKENS = 160
-DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS = 60
+DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS = 0
 DEFAULT_LOCAL_QWEN_TEMPERATURE = 0.9
 DEFAULT_LOCAL_QWEN_TOP_P = 0.9
 DEFAULT_LOCAL_QWEN_N_BATCH = 128
@@ -207,8 +207,13 @@ def _create_ollama_chat_completion(*, messages: list[dict[str, str]], max_tokens
         method="POST",
     )
 
+    urlopen_kwargs = {}
+    request_timeout = _get_local_qwen_request_timeout_seconds()
+    if request_timeout is not None:
+        urlopen_kwargs["timeout"] = request_timeout
+
     try:
-        with urllib.request.urlopen(request, timeout=_get_local_qwen_request_timeout_seconds()) as response:
+        with urllib.request.urlopen(request, **urlopen_kwargs) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore").strip()
@@ -347,9 +352,19 @@ def _get_local_qwen_max_tokens() -> int:
     return _get_positive_int("LOCAL_QWEN_MAX_TOKENS", DEFAULT_LOCAL_QWEN_MAX_TOKENS)
 
 
-def _get_local_qwen_request_timeout_seconds() -> int:
-    value = _get_positive_int("LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS", DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS)
-    return min(60, max(5, value))
+def _get_local_qwen_request_timeout_seconds() -> int | None:
+    raw_value = os.getenv("LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS", "").strip().lower()
+    if raw_value in {"", "0", "none", "no", "off", "false"}:
+        value = DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS
+    else:
+        try:
+            value = int(raw_value)
+        except ValueError:
+            value = DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS
+
+    if value <= 0:
+        return None
+    return max(5, value)
 
 
 def _get_local_qwen_history_limit() -> int:

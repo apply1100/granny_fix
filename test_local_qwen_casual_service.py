@@ -23,7 +23,7 @@ class LocalQwenDefaultConfigTests(unittest.TestCase):
         )
         self.assertEqual(local_qwen_casual_service.DEFAULT_LOCAL_QWEN_CTX, 2048)
         self.assertEqual(local_qwen_casual_service.DEFAULT_LOCAL_QWEN_N_BATCH, 128)
-        self.assertEqual(local_qwen_casual_service.DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS, 60)
+        self.assertEqual(local_qwen_casual_service.DEFAULT_LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS, 0)
 
     def test_backend_can_switch_to_llama_cpp(self) -> None:
         with patch.dict("os.environ", {"LOCAL_QWEN_BACKEND": "llama_cpp"}, clear=False):
@@ -198,18 +198,21 @@ class LocalQwenContextRetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(payload["choices"][0]["message"]["content"], "gemma reply")
-        self.assertEqual(urlopen.call_args.kwargs["timeout"], 60)
+        self.assertNotIn("timeout", urlopen.call_args.kwargs)
 
-    def test_ollama_timeout_can_be_configured_with_bounds(self) -> None:
+    def test_ollama_timeout_can_be_configured_when_needed(self) -> None:
         with patch.dict("os.environ", {"LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS": "2"}, clear=False):
             self.assertEqual(local_qwen_casual_service._get_local_qwen_request_timeout_seconds(), 5)
 
         with patch.dict("os.environ", {"LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS": "90"}, clear=False):
-            self.assertEqual(local_qwen_casual_service._get_local_qwen_request_timeout_seconds(), 60)
+            self.assertEqual(local_qwen_casual_service._get_local_qwen_request_timeout_seconds(), 90)
 
-    def test_ollama_timeout_defaults_to_longer_local_model_budget(self) -> None:
+        with patch.dict("os.environ", {"LOCAL_QWEN_REQUEST_TIMEOUT_SECONDS": "0"}, clear=False):
+            self.assertIsNone(local_qwen_casual_service._get_local_qwen_request_timeout_seconds())
+
+    def test_ollama_timeout_defaults_to_disabled(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(local_qwen_casual_service._get_local_qwen_request_timeout_seconds(), 60)
+            self.assertIsNone(local_qwen_casual_service._get_local_qwen_request_timeout_seconds())
 
     def test_ollama_connection_error_is_summarized_cleanly(self) -> None:
         message = local_qwen_casual_service._summarize_local_qwen_error(
