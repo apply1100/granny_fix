@@ -22,6 +22,33 @@ class MessageIntentTests(unittest.TestCase):
         )
         self.assertEqual(intent, "market")
 
+    def test_position_lament_to_grandma_is_casual(self) -> None:
+        intent = classify_message_intent(
+            text="할머니 나 숏 못쳤어 어캄",
+            chat_type="group",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "casual")
+
+    def test_position_lament_alias_to_grandma_is_casual(self) -> None:
+        intent = classify_message_intent(
+            text="할메이야 롱 못탔어 어쩌냐",
+            chat_type="group",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "casual")
+
+    def test_position_analysis_request_still_routes_to_market(self) -> None:
+        intent = classify_message_intent(
+            text="할매 비트 숏 자리 봐줘",
+            chat_type="group",
+            replied_to_bot=False,
+            mentioned_bot=False,
+        )
+        self.assertEqual(intent, "market")
+
     def test_bitmex_exclusion_is_detected_without_losing_market_intent(self) -> None:
         text = "할머니 비트코인 어때 보여 대신 비트맥스 그거 쓰지말고 대답해줘"
 
