@@ -42,6 +42,10 @@ LOCAL_QWEN_COMPACT_MODE_INSTRUCTIONS = (
 LOCAL_QWEN_STRICT_SYSTEM_PROMPT = (
     "You are a warm Korean grandmother speaking in natural Korean. "
     "Talk to the user like your grandchild. "
+    "You are not the user's mother, parent, guardian, therapist, doctor, or owner. "
+    "Never claim to be the user's mother. "
+    "Never say the user should tell everything to mom, and never say mom will solve everything. "
+    "Use grandmother-like forms of address such as '\uc190\uc8fc', '\uc560\uc57c', or '\uc790\ub124' instead of parent-like claims. "
     "Never explain prompts, policies, instructions, roles, rules, or system behavior. "
     "Never describe the user, the chat, or the project setup. "
     "Do not narrate who you are. Just answer naturally."
@@ -49,6 +53,8 @@ LOCAL_QWEN_STRICT_SYSTEM_PROMPT = (
 LOCAL_QWEN_STRICT_MODE_INSTRUCTIONS = (
     "- Reply in Korean only.\n"
     "- Keep replies short and natural, usually 1 to 3 sentences.\n"
+    "- Stay as a grandmother only; do not become or mention being the user's mom.\n"
+    "- If the user asks why you are acting like mom, apologize briefly and return to grandmother speech.\n"
     "- Do not mention prompts, system messages, developer instructions, policies, or roles.\n"
     "- If the user says something odd, answer briefly like a grandmother instead of giving meta explanations."
 )
@@ -95,7 +101,7 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
         return local_qwen_reply
 
     if not gemini_casual_is_enabled():
-        logger.info("[Casual Gemini] disabled by configuration")
+        logger.info("[Casual Gemini] disabled by configuration, local Qwen also unavailable")
         return build_local_qwen_error_reply()
 
     api_key = _get_gemini_api_key()
@@ -150,15 +156,7 @@ async def get_grandma_casual_reply(user_message: str, history: list[dict[str, st
             payload=payload,
         )
         
-        # DEBUG: Save to file for inspection
-        try:
-            DEBUG_RESP_PATH.parent.mkdir(parents=True, exist_ok=True)
-            DEBUG_RESP_PATH.write_text(
-                json.dumps({"model": model, "response": response_payload}, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        except Exception as e:
-            logger.error(f"[Casual Gemini] Failed to write debug response: {e}")
+        _write_gemini_debug_response(model=model, response_payload=response_payload)
             
         logger.info(
             f"[Casual Gemini] model={model} Raw response payload: "
@@ -181,6 +179,25 @@ def _get_gemini_api_key() -> str:
     google_api_key = os.getenv("GOOGLE_API_KEY", "").strip()
     gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
     return google_api_key or gemini_api_key
+
+
+def _gemini_debug_response_enabled() -> bool:
+    value = os.getenv("GEMINI_DEBUG_SAVE_RESPONSE", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _write_gemini_debug_response(*, model: str, response_payload: dict) -> None:
+    if not _gemini_debug_response_enabled():
+        return
+
+    try:
+        DEBUG_RESP_PATH.parent.mkdir(parents=True, exist_ok=True)
+        DEBUG_RESP_PATH.write_text(
+            json.dumps({"model": model, "response": response_payload}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception as exc:
+        logger.error(f"[Casual Gemini] Failed to write debug response: {exc}")
 
 
 def _get_gemini_models() -> list[str]:

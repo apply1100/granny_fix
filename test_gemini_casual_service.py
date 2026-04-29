@@ -146,6 +146,32 @@ class GeminiReplyFallbackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(reply, "할매가 왔다.")
         self.assertEqual(request_mock.await_count, 2)
+        fake_debug_path.write_text.assert_not_called()
+
+    async def test_debug_response_file_is_saved_only_when_enabled(self) -> None:
+        fake_debug_path = Mock()
+        fake_debug_path.parent.mkdir = Mock()
+        fake_debug_path.write_text = Mock()
+        request_mock = AsyncMock(return_value={"candidates": [{"content": {"parts": [{"text": "halmi reply"}]}}]})
+
+        with (
+            patch.dict(os.environ, {"GEMINI_DEBUG_SAVE_RESPONSE": "1"}, clear=False),
+            patch.object(
+                gemini_casual_service,
+                "get_local_qwen_casual_reply",
+                new=AsyncMock(return_value=None),
+            ),
+            patch.object(gemini_casual_service, "gemini_casual_is_enabled", return_value=True),
+            patch.object(gemini_casual_service, "_get_gemini_api_key", return_value="test-key"),
+            patch.object(gemini_casual_service, "_get_gemini_models", return_value=["working-model"]),
+            patch.object(gemini_casual_service, "DEBUG_RESP_PATH", fake_debug_path),
+            patch.object(gemini_casual_service, "_request_gemini_response", new=request_mock),
+        ):
+            reply = await gemini_casual_service.get_grandma_casual_reply("longer prompt")
+
+        self.assertEqual(reply, "halmi reply")
+        fake_debug_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+        fake_debug_path.write_text.assert_called_once()
 
     async def test_user_reply_hides_raw_http_errors(self) -> None:
         fake_debug_path = Mock()

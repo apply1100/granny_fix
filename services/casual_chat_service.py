@@ -91,6 +91,39 @@ SIMPLE_SHORT_INPUTS = {
     "있냐",
     "있어",
 }
+HELP_REQUEST_KEYWORDS = (
+    "명령어",
+    "커맨드",
+    "command",
+    "기능",
+    "뭘 할",
+    "뭐 할",
+    "뭘할",
+    "뭐할",
+    "뭐 해줄",
+    "뭐해줄",
+    "뭐 되",
+    "뭐되",
+    "사용법",
+    "어떻게 써",
+    "어떻게써",
+    "어떻게 쓰",
+    "어떻게쓰",
+    "뭐 물어",
+    "뭐물어",
+    "뭘 물어",
+    "뭘물어",
+    "도움말",
+    "help",
+)
+
+
+def is_help_request(text: str) -> bool:
+    """명령어/기능 안내 요청인지 감지합니다."""
+    normalized = _normalize(text)
+    return _contains_any(normalized, HELP_REQUEST_KEYWORDS)
+
+
 def build_grandma_unavailable_reply(text: str) -> str:
     normalized = _normalize(text)
     topic = _extract_topic(normalized)
@@ -164,7 +197,10 @@ QUICK_CALL_CUES = (
 )
 QUICK_STATUS_CUES = (
     "뭐해",
+    "뭐함",
     "뭐 하",
+    "뭐하냐",
+    "뭐하니",
     "뭐하고 있",
     "요즘 뭐",
     "어디 가",
@@ -181,6 +217,7 @@ QUICK_COMPLAINT_CUES = (
     "버그",
     "멍청",
     "답답",
+    "치매",
 )
 
 
@@ -188,7 +225,20 @@ def build_grandma_quick_reply(text: str) -> str | None:
     normalized = _normalize(text)
     if not normalized:
         return None
-    if not _is_quick_call(normalized):
+    if _is_oauth_question(normalized):
+        return (
+            "아이고, OAuth는 비밀번호를 남한테 맡기지 않고 '이 일만 해도 된다'는 허락증만 잠깐 내주는 방식이여. "
+            "예를 들면 어떤 앱에 구글로 로그인할 때, 그 앱이 네 구글 비밀번호를 직접 받는 게 아니라 구글한테 허락표를 받아 쓰는 거지. "
+            "그래서 나중에 마음 바뀌면 그 허락만 끊으면 되는 게 장점이여."
+        )
+    if not (
+        _is_quick_call(normalized)
+        or _is_quick_complaint(normalized)
+        or _is_quick_unsettling_request(normalized)
+        or _is_quick_food_recommendation(normalized)
+        or _is_quick_status_question(normalized)
+        or _is_quick_greeting(normalized)
+    ):
         return None
 
     if _is_quick_complaint(normalized):
@@ -210,13 +260,7 @@ def build_grandma_quick_reply(text: str) -> str | None:
         )
 
     if _is_quick_food_recommendation(normalized):
-        return random.choice(
-            (
-                "에구, 저녁거리면 너무 거창한 건 말고 계란말이에 된장국 하나 놓고 김치랑 먹어도 속이 편하단다.",
-                "할매 같으면 저녁엔 된장찌개나 김치찌개에 두부 좀 넣고 밥 한 그릇 먹겠다. 반찬은 멸치나 계란이면 충분허다.",
-                "오늘 저녁은 너무 복잡하게 말고 비빔밥이나 볶음밥처럼 한 그릇으로 끝나는 게 낫겠다. 국물 땡기면 어묵탕도 괜찮다.",
-            )
-        )
+        return _build_quick_food_recommendation_reply(normalized)
 
     if _is_quick_status_question(normalized):
         return random.choice(
@@ -283,7 +327,19 @@ def _is_quick_greeting(text: str) -> bool:
 
 def _is_quick_call(text: str) -> bool:
     compact = re.sub(r"[\W_]+", "", text)
-    return compact in {"할매", "할머니", "할미", "할머니야", "할매야", "할마", "할머님"}
+    quick_calls = {"할매", "할머니", "할미", "할머니야", "할매야", "할마", "할머님"}
+    if compact in quick_calls:
+        return True
+    for cue in sorted(QUICK_CALL_CUES, key=len, reverse=True):
+        if compact.startswith(cue):
+            return _is_low_signal_call_tail(compact[len(cue) :])
+    return False
+
+
+def _is_low_signal_call_tail(text: str) -> bool:
+    if not text:
+        return True
+    return bool(re.fullmatch(r"[가이야요여ㅎㅋᄒᄏ]+", text))
 
 
 def _is_quick_status_question(text: str) -> bool:
@@ -326,4 +382,44 @@ def _is_quick_food_recommendation(text: str) -> bool:
         _contains_any(text, QUICK_CALL_CUES)
         and _contains_any(text, food_cues)
         and _contains_any(text, RECOMMEND_CUES)
+    )
+
+
+def _build_quick_food_recommendation_reply(text: str) -> str:
+    if "아침" in text:
+        return random.choice(
+            (
+                "아침이면 속 편하게 계란국에 밥 조금, 김치나 김 하나면 충분하다. 바쁘면 바나나에 요거트라도 챙기거라.",
+                "내일 아침은 너무 무겁게 말고 토스트에 계란 하나, 우유나 커피 한 잔이면 괜찮겠다.",
+                "할매 같으면 아침엔 누룽지나 오트밀처럼 따뜻한 걸로 속을 깨우겠다. 단백질은 계란 하나 얹고.",
+            )
+        )
+    if "점심" in text:
+        return random.choice(
+            (
+                "점심이면 제육이나 돈가스처럼 든든한 것도 괜찮고, 속이 부담되면 비빔밥 한 그릇이 낫겠다.",
+                "점심은 국밥처럼 따뜻한 거 먹고 오후 버티거라. 너무 졸리면 김밥이나 샐러드에 단백질 좀 보태고.",
+            )
+        )
+    if "야식" in text:
+        return random.choice(
+            (
+                "야식이면 너무 무겁게 먹지 말고 어묵탕이나 계란찜 정도로 끝내거라. 라면은 반 개만 해라.",
+                "늦은 시간이면 두부김치 조금이나 삶은 계란이 낫다. 매운 거 잔뜩 먹고 바로 눕지는 말고.",
+            )
+        )
+    return random.choice(
+        (
+            "에구, 저녁거리면 너무 거창한 건 말고 계란말이에 된장국 하나 놓고 김치랑 먹어도 속이 편하단다.",
+            "할매 같으면 저녁엔 된장찌개나 김치찌개에 두부 좀 넣고 밥 한 그릇 먹겠다. 반찬은 멸치나 계란이면 충분허다.",
+            "오늘 저녁은 너무 복잡하게 말고 비빔밥이나 볶음밥처럼 한 그릇으로 끝나는 게 낫겠다. 국물 땡기면 어묵탕도 괜찮다.",
+        )
+    )
+
+
+def _is_oauth_question(text: str) -> bool:
+    oauth_cues = ("oauth", "o-auth", "오어스", "오쓰")
+    question_cues = ("?", "뭐", "무엇", "설명", "알려", "쉽게", "뜻", "개념")
+    return _contains_any(text, oauth_cues) and (
+        _contains_any(text, QUICK_CALL_CUES) or _contains_any(text, question_cues)
     )

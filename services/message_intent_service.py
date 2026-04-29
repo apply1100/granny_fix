@@ -2,7 +2,7 @@ import unicodedata
 from typing import Literal
 
 
-MessageIntent = Literal["market", "whale_history", "casual", "unsafe", "ignore"]
+MessageIntent = Literal["okx_heatmap", "market", "whale_history", "casual", "unsafe", "ignore"]
 
 MARKET_CORE_KEYWORDS = (
     "롱",
@@ -136,6 +136,12 @@ DIRECT_ATTACK_CUES = (
     "해쳐",
     "사라져",
     "꺼져",
+    "강 건너",
+    "강건너",
+    "건너 가소",
+    "건너가소",
+    "건너 가라",
+    "건너가라",
 )
 GROUP_CASUAL_PROBE_KEYWORDS = (
     "살아있",
@@ -148,31 +154,49 @@ GROUP_CASUAL_PROBE_KEYWORDS = (
     "왜 안 오",
     "왜안오",
 )
-GROUP_CASUAL_PROBE_ENDINGS = (
-    "있나",
-    "있어",
-    "있냐",
-    "살아",
-    "살아있나",
-    "살아있어",
-    "왔어",
-    "왔냐",
-    "자냐",
-    "자니",
-    "어때",
-    "답해",
-    "답장해",
-    "말해봐",
-    "보여줘",
-    "사냐",
-    "죽었냐",
-    "안오냐",
-)
 LOW_SIGNAL_CHARS = frozenset(" 하할매니야요!?~.,")
 WHALE_HISTORY_MARKET_CUES = ("비트맥스", "bitmex", "xbtusd")
 WHALE_HISTORY_SIZE_CUES = ("고래", "대량", "1m", "1m+", "100만")
 WHALE_HISTORY_TRADE_CUES = ("체결", "체결된", "체결내역", "거래내역", "내역", "목록", "기록", "최근", "방금", "알람")
 WHALE_HISTORY_QUERY_CUES = ("있어", "있나", "있냐", "보여줘", "보여주", "보여", "확인", "조회", "정리", "알려줘")
+OKX_KEYWORDS = ("okx", "오케이엑스")
+OKX_BTC_CUES = ("btc", "비트", "비트코인", "bitcoin")
+OKX_ETH_CUES = ("eth", "이더", "이더리움", "ethereum")
+OKX_REPORT_CUES = (
+    "보여줘",
+    "보여주",
+    "봐줘",
+    "확인",
+    "조회",
+    "찾아줘",
+    "찾아주",
+    "열어줘",
+    "띄워줘",
+    "어때",
+    "어떨까",
+    "있어",
+    "있나",
+    "있냐",
+    "오더",
+    "오더북",
+    "주문",
+    "물량",
+    "밴드",
+    "히트맵",
+    "heatmap",
+    "딥밴드",
+)
+BITMEX_SOURCE_CUES = ("비트맥스", "bitmex")
+SOURCE_EXCLUSION_CUES = (
+    "말고",
+    "빼고",
+    "제외",
+    "쓰지",
+    "사용하지",
+    "안 쓰",
+    "안쓰",
+    "넣지",
+)
 
 
 def classify_message_intent(
@@ -187,12 +211,20 @@ def classify_message_intent(
         return "ignore"
 
     addressed_to_grandma = _looks_addressed_to_grandma(normalized)
+    directed_to_bot = chat_type == "private" or addressed_to_grandma or replied_to_bot or mentioned_bot
+
+    if _looks_like_okx_heatmap_request(normalized, directed_to_bot=directed_to_bot):
+        return "okx_heatmap"
 
     if _looks_like_whale_history_request(normalized):
-        return "whale_history"
+        if directed_to_bot:
+            return "whale_history"
+        return "ignore"
 
     if _looks_like_market_question(normalized):
-        return "market"
+        if directed_to_bot:
+            return "market"
+        return "ignore"
 
     if _looks_like_unsafe_request(
         normalized,
@@ -245,6 +277,38 @@ def _looks_like_market_question(normalized: str) -> bool:
         return True
 
     return False
+
+
+def extract_okx_market_asset(text: str) -> str | None:
+    normalized = unicodedata.normalize("NFKC", text or "").lower().strip()
+    return _extract_okx_market_asset_from_normalized(normalized)
+
+
+def excludes_bitmex_market_source(text: str) -> bool:
+    normalized = unicodedata.normalize("NFKC", text or "").lower().strip()
+    return _contains_any(normalized, BITMEX_SOURCE_CUES) and _contains_any(
+        normalized,
+        SOURCE_EXCLUSION_CUES,
+    )
+
+
+def _looks_like_okx_heatmap_request(normalized: str, *, directed_to_bot: bool) -> bool:
+    asset = _extract_okx_market_asset_from_normalized(normalized)
+    if asset is None:
+        return False
+    if directed_to_bot:
+        return True
+    return _contains_any(normalized, OKX_REPORT_CUES)
+
+
+def _extract_okx_market_asset_from_normalized(normalized: str) -> str | None:
+    if not _contains_any(normalized, OKX_KEYWORDS):
+        return None
+    if _contains_any(normalized, OKX_ETH_CUES):
+        return "eth"
+    if _contains_any(normalized, OKX_BTC_CUES):
+        return "btc"
+    return None
 
 
 def _looks_like_whale_history_request(normalized: str) -> bool:
@@ -301,7 +365,11 @@ def _looks_like_group_casual_probe(normalized: str) -> bool:
         return False
     if _contains_any(normalized, GROUP_CASUAL_PROBE_KEYWORDS):
         return True
-    return compact.endswith(GROUP_CASUAL_PROBE_ENDINGS)
+    # NOTE: We intentionally avoid generic suffix heuristics like "...있어?" that
+    # can match ordinary group chatter (e.g., "커피 있어?") and cause unwanted
+    # bot replies. Keep this conservative; users can still address the bot by
+    # name, reply, or @mention.
+    return False
 
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:

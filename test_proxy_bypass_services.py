@@ -1,9 +1,8 @@
-import io
 import json
 import unittest
 from unittest.mock import patch
 
-from services import bitmex_watcher_service, coinalyze_service
+from services import bitmex_watcher_service, coinalyze_service, okx_btc_alert_service
 
 
 class _FakeResponse:
@@ -52,6 +51,19 @@ class ProxyBypassTests(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].trade_id, "abc")
+        mocked_open.assert_called_once()
+
+    def test_okx_btc_request_uses_direct_opener(self) -> None:
+        payload = {"series": [{"id": "test", "points": []}]}
+        with patch.dict("os.environ", {"KIYOTAKA_API_KEY": "test-key"}, clear=False):
+            with patch.object(
+                okx_btc_alert_service._DIRECT_HTTP_OPENER,
+                "open",
+                return_value=_FakeResponse(payload),
+            ) as mocked_open:
+                result = okx_btc_alert_service._request_json("https://example.com", {"hello": "world"})
+
+        self.assertEqual(result, payload)
         mocked_open.assert_called_once()
 
 

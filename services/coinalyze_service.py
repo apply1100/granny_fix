@@ -211,12 +211,13 @@ def _infer_analysis(
     funding_rate_pct: float | None,
     predicted_funding_rate_pct: float | None,
 ) -> BitmexWhaleAnalysis:
-    oi_up = oi_change_pct >= 0.2
-    oi_down = oi_change_pct <= -0.2
-    buy_pressure = buy_share_pct >= 55.0 and cvd_delta > 0
-    sell_pressure = buy_share_pct <= 45.0 and cvd_delta < 0
-    price_up = price_change_pct >= 0.15
-    price_down = price_change_pct <= -0.15
+    oi_up = oi_change_pct >= 0.15
+    oi_down = oi_change_pct <= -0.15
+    # 매수/매도 비중이 극단적이면 CVD 없이도 압력으로 인정
+    buy_pressure = (buy_share_pct >= 55.0 and cvd_delta > 0) or buy_share_pct >= 60.0
+    sell_pressure = (buy_share_pct <= 45.0 and cvd_delta < 0) or buy_share_pct <= 40.0
+    price_up = price_change_pct >= 0.10
+    price_down = price_change_pct <= -0.10
     short_liq_dominant = short_liquidations_usd > long_liquidations_usd * 1.25 and short_liquidations_usd > 0
     long_liq_dominant = long_liquidations_usd > short_liquidations_usd * 1.25 and long_liquidations_usd > 0
 
@@ -325,35 +326,52 @@ def _build_summary(
 
 def _grandma_opening(analysis: BitmexWhaleAnalysis) -> str:
     if analysis.stance == "신규 롱 진입 우세":
-        return "허허, 지금은 비트맥스 기준으로 롱 쪽 새 돈이 붙는 그림에 조금 더 가깝구나."
+        if analysis.confidence == "높음":
+            return "비트맥스 기준으로 롱 쪽 새 돈 붙는 거 맞다."
+        return "비트맥스 기준으로는 롱 쪽 새 돈 붙는 그림에 가깝구나."
     if analysis.stance == "신규 숏 진입 우세":
-        return "허허, 지금은 비트맥스 기준으로 숏 쪽 새 물량이 붙는 그림에 조금 더 가깝구나."
+        if analysis.confidence == "높음":
+            return "비트맥스 기준으로 숏 쪽 새 물량 들어오는 거 맞다."
+        return "비트맥스 기준으로는 숏 쪽 새 물량 붙는 그림에 가깝구나."
     if analysis.stance == "롱 정리 또는 롱 청산 우세":
-        return "허허, 새 숏이라기보다 롱 쪽 정리나 청산 냄새가 더 나는 구간이구나."
+        return "신규 숏보다 기존 롱 정리/청산 냄새가 더 나는 구간이다."
     if analysis.stance == "숏 커버링 우세":
-        return "허허, 새 롱보다는 숏 커버링이 먼저 붙는 그림에 가까워 보이는구나."
-    return "허허, 지금은 한쪽으로 딱 잘라 말하기엔 아직 근거가 좀 약하구나."
+        return "신규 롱보다 숏 커버링 먼저 붙는 그림이다."
+    return "지금은 한쪽으로 딱 잘라 말하기엔 근거가 좀 약하구나."
 
 
 def _grandma_action_line(user_question: str, analysis: BitmexWhaleAnalysis) -> str:
     question = (user_question or "").lower()
     asks_direction = any(token in question for token in ("롱", "숏", "long", "short", "방향"))
+    high_conf = analysis.confidence == "높음"
 
     if analysis.confidence == "낮음":
-        return "섣불리 롱이니 숏이니 단정하지 말고, 1M 알림이 다시 붙는지랑 OI가 더 커지는지 한 번 더 보거라."
+        return "지금은 OI 변화도 작고 방향이 안 잡혀. 1M 알림 다시 붙거나 OI 확 늘면 그때 봐."
     if analysis.stance == "신규 롱 진입 우세":
         if asks_direction:
-            return "억지로 말하면 롱 쪽으로 기우는 편이지만, 추격보다는 눌림이나 재확인 한 번 보고 들어가는 게 낫다."
-        return "위로 미는 힘은 보이는데, 추격 매수보다는 한 번 더 확인하고 움직이는 게 낫다."
+            if high_conf:
+                return "롱이다. 지금 자리 또는 눌림 자리 들어가면 된다."
+            return "롱 쪽으로 보인다. 눌림 한 번 주면 그 자리 노려봐."
+        if high_conf:
+            return "위로 미는 그림이다. 눌리면 잡아봐."
+        return "위로 미는 힘 있어. 눌림 확인하고 들어가면 되겠다."
     if analysis.stance == "신규 숏 진입 우세":
         if asks_direction:
-            return "억지로 말하면 숏 쪽으로 기우는 편인데, 반등 한 번 주는지 보고 들어가야 덜 다친다."
-        return "아래로 누르는 힘은 보이는데, 급하게 따라붙기보다 반등 확인 뒤 보는 게 낫다."
+            if high_conf:
+                return "숏이다. 반등 나오면 그 자리 숏 넣어."
+            return "숏 쪽으로 보인다. 반등 한 번 주면 그 자리 잡아봐."
+        if high_conf:
+            return "아래로 누르는 그림이다. 반등 나오면 숏 자리다."
+        return "아래로 누르는 힘 있어. 반등 자리 보고 들어가면 되겠다."
     if analysis.stance == "롱 정리 또는 롱 청산 우세":
-        return "이건 새 방향 베팅보다 기존 롱이 정리되는 그림일 수 있으니, 하방이 이어지는지부터 확인해 보거라."
+        if asks_direction:
+            return "지금은 신규 방향보다 롱 털리는 중이다. 정리 끝나는 자리 확인 후 봐."
+        return "롱 포지션 정리되는 구간이야. 하방 이어지는지 확인하고 움직여."
     if analysis.stance == "숏 커버링 우세":
-        return "이건 새 상방 베팅이라기보다 숏 정리일 수 있으니, 윗방향 지속성이 있는지부터 봐야 한다."
-    return "지금은 애매하니 무리해서 포지션 잡기보다, OI나 대형 체결이 한 번 더 붙는지 기다리는 편이 낫다."
+        if asks_direction:
+            return "숏들 커버하는 중이라 위로 튀는 거야. 지속성 있는지 보고 롱 잡아."
+        return "숏 커버로 올라가는 중이다. 위 방향 지속되면 롱 자리 나온다."
+    return "지금은 방향이 애매해. OI나 대형 체결 한 번 더 붙는 거 보고 움직여."
 
 
 def _resolve_bitmex_btc_perp_symbol(api_key: str) -> dict:

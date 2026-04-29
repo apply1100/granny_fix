@@ -42,6 +42,9 @@ sudo apt-get install -y python3 python3-venv libgomp1 curl ca-certificates
 "$PYTHON_BIN" -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install --upgrade pip
 "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt"
+if "$VENV_DIR/bin/python" -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('playwright') else 1)"; then
+  "$VENV_DIR/bin/python" -m playwright install --with-deps chromium
+fi
 
 mkdir -p "$APP_DIR/memory"
 mkdir -p "$APP_DIR/model-cache"

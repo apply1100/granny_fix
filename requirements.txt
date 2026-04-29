@@ -1,5 +1,8 @@
 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-aiogram==3.10.0
+aiogram==3.23.0
+playwright==1.58.0
 python-dotenv==1.0.1
+pydantic>=2.12,<2.13
+pydantic-ai-slim[openai]>=1,<2
 huggingface-hub>=0.31,<1
 llama-cpp-python==0.3.16
