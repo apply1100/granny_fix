@@ -90,35 +90,6 @@ MARKET_DIRECTION_CUES = (
     "대장",
     "고래",
 )
-POSITION_WORDS = ("롱", "숏", "long", "short")
-POSITION_LAMENT_CUES = (
-    "못쳤",
-    "못 쳤",
-    "못탔",
-    "못 탔",
-    "못잡",
-    "못 잡",
-    "놓쳤",
-    "놓침",
-    "어캄",
-    "어쩌",
-    "망했",
-    "후회",
-)
-POSITION_ANALYSIS_REQUEST_CUES = (
-    "자리",
-    "차트",
-    "방향",
-    "추세",
-    "봐줘",
-    "분석",
-    "체크",
-    "확인",
-    "어때",
-    "어떨까",
-    "어케 봐",
-    "어떻게 봐",
-)
 GRANDMA_CALL_KEYWORDS = (
     "할매",
     "할머니",
@@ -247,9 +218,6 @@ def classify_message_intent(
     addressed_to_grandma = _looks_addressed_to_grandma(normalized)
     directed_to_bot = chat_type == "private" or addressed_to_grandma or replied_to_bot or mentioned_bot
 
-    if directed_to_bot and _looks_like_position_lament(normalized):
-        return "casual"
-
     if _looks_like_okx_heatmap_request(normalized, directed_to_bot=directed_to_bot):
         return "okx_heatmap"
 
@@ -304,7 +272,7 @@ def _looks_like_market_question(normalized: str) -> bool:
     has_context_cue = _contains_any(normalized, MARKET_CONTEXT_CUES)
     has_impression_cue = _contains_any(normalized, MARKET_IMPRESSION_CUES)
 
-    if has_core_keyword and (has_query_cue or has_direction_cue):
+    if has_core_keyword and has_query_cue:
         return True
 
     if has_asset_keyword and has_impression_cue:
@@ -314,16 +282,6 @@ def _looks_like_market_question(normalized: str) -> bool:
         return True
 
     return False
-
-
-def _looks_like_position_lament(normalized: str) -> bool:
-    if _contains_any(normalized, POSITION_ANALYSIS_REQUEST_CUES):
-        return False
-    return _contains_any(normalized, POSITION_WORDS) and _contains_any(
-        normalized,
-        POSITION_LAMENT_CUES,
-    )
-
 
 def extract_okx_market_asset(text: str) -> str | None:
     normalized = unicodedata.normalize("NFKC", text or "").lower().strip()
