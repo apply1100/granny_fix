@@ -212,6 +212,7 @@ async def _capture_kiyotaka_screenshot_single(
             page.set_default_timeout(timeout_ms)
             await _close_extra_kiyotaka_pages(context, keep_page=page)
 
+            reused_page_reloaded = False
             if _is_kiyotaka_chart_url(page.url):
                 with suppress(Exception):
                     await page.bring_to_front()
@@ -219,6 +220,7 @@ async def _capture_kiyotaka_screenshot_single(
                 # Reused pages can stay scrolled/paused on an old time window.
                 # Reloading is the most reliable way to return to the latest candles.
                 await page.reload(wait_until="commit", timeout=timeout_ms)
+                reused_page_reloaded = True
                 _maybe_write_debug_reload_marker("after_reload", page.url)
             else:
                 await page.goto(spec.chart_url, wait_until="commit", timeout=timeout_ms)
@@ -226,7 +228,7 @@ async def _capture_kiyotaka_screenshot_single(
 
             await _dismiss_optional_ui(page)
             await _close_optional_terminal_panels(page)
-            if not await _page_matches_capture_state(page, spec):
+            if reused_page_reloaded or not await _page_matches_capture_state(page, spec):
                 await _select_symbol(page, spec)
                 await _select_timeframe(page, spec.timeframe)
                 await _select_view(page, spec.view)
