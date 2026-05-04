@@ -236,6 +236,7 @@ async def _capture_kiyotaka_screenshot_single(
             await _configure_heatmap_for_bitfinex_orders(page, spec)
             heatmap_visible = await _wait_for_heatmap_render(page, spec)
             await _verify_selected_symbol(page, spec)
+            await _align_chart_to_latest(page)
             if _should_require_visible_heatmap(spec):
                 if not heatmap_enabled:
                     raise KiyotakaHeatmapUnavailableError(f"{spec.result_symbol} / {spec.result_exchange} 히트맵을 켤 수 없습니다.")
@@ -297,6 +298,50 @@ def _maybe_write_debug_reload_marker(phase: str, url: str) -> None:
             f.write(f"{phase}\t{url}\n")
     except Exception:
         return
+
+
+async def _align_chart_to_latest(page) -> None:
+    """
+    Best-effort: align the chart viewport to the right edge (latest time).
+
+    Heatmap UIs can remain panned into the past; this tries to bring the view back to "now".
+    """
+
+    realtime_patterns = [
+        re.compile(r"(go to|jump to).*(real\s*time|realtime)|real\s*time", re.I),
+        re.compile(r"(latest|now|live)$", re.I),
+    ]
+    for pattern in realtime_patterns:
+        with suppress(Exception):
+            candidates = [
+                page.get_by_role("button", name=pattern),
+                page.get_by_text(pattern).first,
+            ]
+            if await _click_first_visible(candidates, force=True):
+                await page.wait_for_timeout(650)
+                return
+
+    viewport = page.viewport_size or {"width": 2048, "height": 900}
+    width = int(viewport.get("width") or 2048)
+    height = int(viewport.get("height") or 900)
+
+    with suppress(Exception):
+        await page.mouse.click(int(width * 0.62), int(height * 0.38))
+        await page.wait_for_timeout(80)
+
+    for key in ("End", "Shift+End", "Control+End", "Meta+End"):
+        with suppress(Exception):
+            await page.keyboard.press(key)
+            await page.wait_for_timeout(120)
+
+    # If still panned, try a short drag; direction varies by UI so try both.
+    for start_x, end_x in ((int(width * 0.45), int(width * 0.70)), (int(width * 0.70), int(width * 0.45))):
+        with suppress(Exception):
+            await page.mouse.move(start_x, int(height * 0.48))
+            await page.mouse.down()
+            await page.mouse.move(end_x, int(height * 0.48), steps=18)
+            await page.mouse.up()
+            await page.wait_for_timeout(250)
 
 
 async def _wait_for_kiyotaka_app_ready(page, *, timeout_ms: int = 60000) -> None:
