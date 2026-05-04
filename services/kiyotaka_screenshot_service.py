@@ -212,11 +212,16 @@ async def _capture_kiyotaka_screenshot_single(
             page.set_default_timeout(timeout_ms)
             await _close_extra_kiyotaka_pages(context, keep_page=page)
 
-            if not _is_kiyotaka_chart_url(page.url):
-                await page.goto(spec.chart_url, wait_until="commit", timeout=timeout_ms)
-            else:
+            if _is_kiyotaka_chart_url(page.url):
                 with suppress(Exception):
                     await page.bring_to_front()
+                _maybe_write_debug_reload_marker("before_reload", page.url)
+                # Reused pages can stay scrolled/paused on an old time window.
+                # Reloading is the most reliable way to return to the latest candles.
+                await page.reload(wait_until="commit", timeout=timeout_ms)
+                _maybe_write_debug_reload_marker("after_reload", page.url)
+            else:
+                await page.goto(spec.chart_url, wait_until="commit", timeout=timeout_ms)
             await _wait_for_kiyotaka_app_ready(page)
 
             await _dismiss_optional_ui(page)
@@ -279,6 +284,17 @@ async def _dismiss_optional_ui(page) -> None:
                 await page.wait_for_timeout(500)
         except Exception:
             continue
+
+
+def _maybe_write_debug_reload_marker(phase: str, url: str) -> None:
+    path = os.getenv("KIYOTAKA_DEBUG_RELOAD_MARKER_PATH", "").strip()
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"{phase}\t{url}\n")
+    except Exception:
+        return
 
 
 async def _wait_for_kiyotaka_app_ready(page, *, timeout_ms: int = 60000) -> None:
