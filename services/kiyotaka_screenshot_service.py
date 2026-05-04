@@ -7,7 +7,6 @@ import re
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
 import struct
 import zlib
 from typing import TYPE_CHECKING
@@ -249,7 +248,6 @@ async def _capture_kiyotaka_screenshot_single(
             await _close_optional_terminal_panels(page)
 
             capture_clip = None if indicators_cleaned else await _get_clean_heatmap_capture_clip(page)
-            await _add_capture_timestamp_overlay(page, capture_clip=capture_clip)
             if capture_clip is None:
                 screenshot = await page.screenshot(type="png")
             else:
@@ -302,65 +300,6 @@ def _maybe_write_debug_reload_marker(phase: str, url: str) -> None:
         return
 
 
-def _kiyotaka_capture_timestamp_enabled() -> bool:
-    raw = os.getenv("KIYOTAKA_CAPTURE_TIMESTAMP", "1").strip().lower()
-    return raw not in {"0", "false", "no", "off"}
-
-
-def _format_capture_timestamp_label() -> str:
-    kst = timezone(timedelta(hours=9))
-    return datetime.now(kst).strftime("Captured %Y-%m-%d %H:%M:%S KST")
-
-
-async def _add_capture_timestamp_overlay(page, *, capture_clip: dict[str, int] | None) -> None:
-    if not _kiyotaka_capture_timestamp_enabled():
-        return
-
-    label = _format_capture_timestamp_label()
-    top = None
-    if capture_clip is not None:
-        try:
-            top = max(8, int(capture_clip.get("height", 0)) - 34)
-        except (TypeError, ValueError):
-            top = None
-
-    with suppress(Exception):
-        await page.evaluate(
-            """
-            ({ label, top }) => {
-              const existing = document.getElementById("kiyotaka-capture-timestamp");
-              if (existing) existing.remove();
-
-              const marker = document.createElement("div");
-              marker.id = "kiyotaka-capture-timestamp";
-              marker.textContent = label;
-              Object.assign(marker.style, {
-                position: "fixed",
-                right: "12px",
-                zIndex: "2147483647",
-                color: "#fff",
-                background: "rgba(0, 0, 0, 0.78)",
-                border: "1px solid rgba(255, 255, 255, 0.38)",
-                borderRadius: "4px",
-                padding: "4px 8px",
-                font: "14px/1.25 monospace",
-                letterSpacing: "0",
-                pointerEvents: "none",
-                textShadow: "0 1px 2px rgba(0,0,0,0.85)",
-              });
-              if (Number.isFinite(top)) {
-                marker.style.top = `${top}px`;
-              } else {
-                marker.style.bottom = "10px";
-              }
-              document.body.appendChild(marker);
-            }
-            """,
-            {"label": label, "top": top},
-        )
-        await page.wait_for_timeout(100)
-
-
 async def _align_chart_to_latest(page) -> None:
     """
     Best-effort: align the chart viewport to the right edge (latest time).
@@ -395,14 +334,8 @@ async def _align_chart_to_latest(page) -> None:
             await page.keyboard.press(key)
             await page.wait_for_timeout(120)
 
-    # If still panned, try a short drag; direction varies by UI so try both.
-    for start_x, end_x in ((int(width * 0.45), int(width * 0.70)), (int(width * 0.70), int(width * 0.45))):
-        with suppress(Exception):
-            await page.mouse.move(start_x, int(height * 0.48))
-            await page.mouse.down()
-            await page.mouse.move(end_x, int(height * 0.48), steps=18)
-            await page.mouse.up()
-            await page.wait_for_timeout(250)
+    with suppress(Exception):
+        await page.wait_for_timeout(450)
 
 
 async def _wait_for_kiyotaka_app_ready(page, *, timeout_ms: int = 60000) -> None:
