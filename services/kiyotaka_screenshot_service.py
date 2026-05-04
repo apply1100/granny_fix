@@ -246,6 +246,7 @@ async def _capture_kiyotaka_screenshot_single(
             await _adjust_chart_range(page, spec, focus_prices=focus_prices)
             await _verify_selected_symbol(page, spec)
             await _close_optional_terminal_panels(page)
+            await _park_mouse_away_from_chart(page)
 
             capture_clip = None if indicators_cleaned else await _get_clean_heatmap_capture_clip(page)
             if capture_clip is None:
@@ -319,7 +320,20 @@ async def _align_chart_to_latest(page) -> None:
             ]
             if await _click_first_visible(candidates, force=True):
                 await page.wait_for_timeout(650)
-                return
+                break
+
+    with suppress(Exception):
+        await _click_first_visible(
+            [
+                page.locator(
+                    '[aria-label*="real" i], [title*="real" i], [data-testid*="real" i], '
+                    '[aria-label*="latest" i], [title*="latest" i], [data-testid*="latest" i], '
+                    '[aria-label*="now" i], [title*="now" i], [data-testid*="now" i]'
+                ),
+            ],
+            force=True,
+        )
+        await page.wait_for_timeout(250)
 
     viewport = page.viewport_size or {"width": 2048, "height": 900}
     width = int(viewport.get("width") or 2048)
@@ -334,8 +348,43 @@ async def _align_chart_to_latest(page) -> None:
             await page.keyboard.press(key)
             await page.wait_for_timeout(120)
 
+    await _pad_chart_slightly_into_future(page, width=width, height=height)
+
     with suppress(Exception):
         await page.wait_for_timeout(450)
+
+
+async def _pad_chart_slightly_into_future(page, *, width: int, height: int) -> None:
+    pixels = _get_kiyotaka_latest_future_pad_pixels()
+    if pixels <= 0:
+        return
+
+    start_x = min(width - 90, max(220, int(width * 0.84)))
+    end_x = max(90, start_x - pixels)
+    y = min(height - 140, max(130, int(height * 0.48)))
+    with suppress(Exception):
+        await page.mouse.move(start_x, y)
+        await page.mouse.down()
+        await page.mouse.move(end_x, y, steps=10)
+        await page.mouse.up()
+        await page.wait_for_timeout(300)
+
+
+def _get_kiyotaka_latest_future_pad_pixels() -> int:
+    raw = os.getenv("KIYOTAKA_LATEST_FUTURE_PAD_PIXELS", "96").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return 96
+    return min(260, max(0, value))
+
+
+async def _park_mouse_away_from_chart(page) -> None:
+    viewport = page.viewport_size or {"width": 2048, "height": 900}
+    width = int(viewport.get("width") or 2048)
+    with suppress(Exception):
+        await page.mouse.move(max(16, width - 22), 22)
+        await page.wait_for_timeout(150)
 
 
 async def _wait_for_kiyotaka_app_ready(page, *, timeout_ms: int = 60000) -> None:
@@ -965,7 +1014,8 @@ async def _get_clean_heatmap_capture_clip(page) -> dict[str, int] | None:
     width = int(viewport.get("width") or 2048)
     height = int(viewport.get("height") or 900)
     price_bottom = int(float(box.get("y", 0)) + float(box.get("height", 0)) + 24)
-    clip_height = min(height, max(min(height, 540), price_bottom))
+    time_axis_bottom = height - _get_kiyotaka_clean_capture_bottom_margin()
+    clip_height = min(height, max(min(height, 540), price_bottom, time_axis_bottom))
     if clip_height >= height - 24:
         return None
     return {"x": 0, "y": 0, "width": width, "height": clip_height}
@@ -974,6 +1024,15 @@ async def _get_clean_heatmap_capture_clip(page) -> dict[str, int] | None:
 def _kiyotaka_clean_capture_enabled() -> bool:
     raw = os.getenv("KIYOTAKA_CLEAN_CAPTURE", "1").strip().lower()
     return raw not in {"0", "false", "no", "off"}
+
+
+def _get_kiyotaka_clean_capture_bottom_margin() -> int:
+    raw = os.getenv("KIYOTAKA_CLEAN_CAPTURE_BOTTOM_MARGIN", "32").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return 32
+    return min(180, max(0, value))
 
 
 async def _adjust_chart_range(page, spec: "KiyotakaShortcutSpec", *, focus_prices: Sequence[float] = ()) -> None:

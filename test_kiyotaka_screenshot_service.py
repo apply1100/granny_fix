@@ -264,7 +264,7 @@ class KiyotakaScreenshotRangeAdjustmentTests(unittest.IsolatedAsyncioTestCase):
 
         clip = await _get_clean_heatmap_capture_clip(page)
 
-        self.assertEqual(clip, {"x": 0, "y": 0, "width": 2048, "height": 670})
+        self.assertEqual(clip, {"x": 0, "y": 0, "width": 2048, "height": 868})
 
     async def test_clean_heatmap_capture_clip_can_be_disabled(self) -> None:
         page = _FakeKiyotakaPage([])
