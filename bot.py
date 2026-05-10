@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import os
 import logging
 from datetime import datetime, timezone
@@ -115,187 +115,66 @@ BOT_COMMANDS = [
 ]
 
 HELP_TEXT = (
-    "사용 가능한 명령어\n"
-    "/ping - 봇 응답 확인\n"
-    "/chatid - 현재 chat_id 확인\n"
-    "/coinalyze - BitMEX 대량 체결 알림 세팅 안내\n"
-    "/bitmexwhale - OI/CVD 기준 BitMEX 롱숏 추정\n"
-    "/watchwhales - BitMEX 1M+ 자동 알림 시작\n"
-    "/unwatchwhales - BitMEX 1M+ 자동 알림 중지\n"
-    "/trackon - BitMEX 1M+ 자동 알림 시작\n"
-    "/trackoff - BitMEX 1M+ 자동 알림 중지\n"
-    "/trackstatus - 현재 채팅방 자동 알림 상태 확인\n"
-    "/testalert - 가짜 1M 알림 테스트\n"
-    "/okxbit - OKX BTC 딥 히트맵 밴드 조회\n"
-    "/okxeth - OKX ETH 딥 히트맵 밴드 조회\n"
-    "/okxbiton - OKX BTC 딥밴드 알람 켜기\n"
-    "/okxbitoff - OKX BTC 신규 물량 알람 끄기\n"
-    "/okxbitstatus - OKX BTC 알람 상태 확인\n"
-    "/okxbtcusdtp - Kiyotaka API OKX BTC-USDT PERP 히트맵 밴드 조회\n"
-    "/okxbtcusdtpwide - Kiyotaka API OKX BTC-USDT PERP 와이드 밴드 조회\n"
-    "/bipaeth 또는 비파 이더 - BITFINEX ETHUSDT 진한 오더벽 조회\n"
-    "/testwhalealert - 현재 채팅방으로 가짜 알림 테스트\n\n"
-    "시장 질문은 그냥 문장으로 물어봐도 됩니다.\n"
-    "예: 지금 롱이냐 숏이냐 / 비트맥스 누가 때리냐 / OI 붙었냐"
+    "?ъ슜 媛?ν븳 紐낅졊??n"
+    "/ping - 遊??묐떟 ?뺤씤\n"
+    "/chatid - ?꾩옱 chat_id ?뺤씤\n"
+    "/coinalyze - BitMEX ???泥닿껐 ?뚮┝ ?명똿 ?덈궡\n"
+    "/bitmexwhale - OI/CVD 湲곗? BitMEX 濡깆닆 異붿젙\n"
+    "/watchwhales - BitMEX 1M+ ?먮룞 ?뚮┝ ?쒖옉\n"
+    "/unwatchwhales - BitMEX 1M+ ?먮룞 ?뚮┝ 以묒?\n"
+    "/trackon - BitMEX 1M+ ?먮룞 ?뚮┝ ?쒖옉\n"
+    "/trackoff - BitMEX 1M+ ?먮룞 ?뚮┝ 以묒?\n"
+    "/trackstatus - ?꾩옱 梨꾪똿諛??먮룞 ?뚮┝ ?곹깭 ?뺤씤\n"
+    "/testalert - 媛吏?1M ?뚮┝ ?뚯뒪??n"
+    "/okxbit - OKX BTC ???덊듃留?諛대뱶 議고쉶\n"
+    "/okxeth - OKX ETH ???덊듃留?諛대뱶 議고쉶\n"
+    "/okxbiton - OKX BTC ?λ객???뚮엺 耳쒓린\n"
+    "/okxbitoff - OKX BTC ?좉퇋 臾쇰웾 ?뚮엺 ?꾧린\n"
+    "/okxbitstatus - OKX BTC ?뚮엺 ?곹깭 ?뺤씤\n"
+    "/okxbtcusdtp - Kiyotaka API OKX BTC-USDT PERP ?덊듃留?諛대뱶 議고쉶\n"
+    "/okxbtcusdtpwide - Kiyotaka API OKX BTC-USDT PERP ??대뱶 諛대뱶 議고쉶\n"
+    "/bipaeth ?먮뒗 鍮꾪뙆 ?대뜑 - BITFINEX ETHUSDT 吏꾪븳 ?ㅻ뜑踰?議고쉶\n"
+    "/testwhalealert - ?꾩옱 梨꾪똿諛⑹쑝濡?媛吏??뚮┝ ?뚯뒪??n\n"
+    "?쒖옣 吏덈Ц? 洹몃깷 臾몄옣?쇰줈 臾쇱뼱遊먮룄 ?⑸땲??\n"
+    "?? 吏湲?濡깆씠???륁씠??/ 鍮꾪듃留μ뒪 ?꾧? ?뚮━??/ OI 遺숈뿀??
 )
 
 COINALYZE_ALERT_TEXT = (
-    "BitMEX 대량 체결 체크용 Coinalyze 세팅\n\n"
-    "1. Coinalyze에서 BTC / USD Perp BitMEX 차트를 엽니다.\n"
-    "2. Alerts 또는 종 모양 메뉴를 누릅니다.\n"
-    "3. 조건을 trade size greater than 으로 고릅니다.\n"
-    "4. 값은 1000000으로 넣습니다.\n"
-    "5. 저장하고 텔레그램 알림을 연결합니다.\n\n"
-    "빠른 체크 포인트\n"
-    "- 자정 언저리처럼 수급이 붙는 시간대에 특히 유용합니다.\n"
-    "- 이 알림이 울릴 때 가격 근처로 라지가 달려드는지 쓱 확인하면 됩니다.\n\n"
-    "참고 링크\n"
+    "BitMEX ???泥닿껐 泥댄겕??Coinalyze ?명똿\n\n"
+    "1. Coinalyze?먯꽌 BTC / USD Perp BitMEX 李⑦듃瑜??쎈땲??\n"
+    "2. Alerts ?먮뒗 醫?紐⑥뼇 硫붾돱瑜??꾨쫭?덈떎.\n"
+    "3. 議곌굔??trade size greater than ?쇰줈 怨좊쫭?덈떎.\n"
+    "4. 媛믪? 1000000?쇰줈 ?ｌ뒿?덈떎.\n"
+    "5. ??ν븯怨??붾젅洹몃옩 ?뚮┝???곌껐?⑸땲??\n\n"
+    "鍮좊Ⅸ 泥댄겕 ?ъ씤??n"
+    "- ?먯젙 ?몄?由ъ쿂???섍툒??遺숇뒗 ?쒓컙????뱁엳 ?좎슜?⑸땲??\n"
+    "- ???뚮┝???몃┫ ??媛寃?洹쇱쿂濡??쇱?媛 ?щ젮?쒕뒗吏 ???뺤씤?섎㈃ ?⑸땲??\n\n"
+    "李멸퀬 留곹겕\n"
     "- Alerts: https://coinalyze.net/alerts/\n"
     "- BTC/USD Perp BitMEX: https://coinalyze.net/bitcoin/usd/bitmex/btcusd_perp/price-chart-live/\n\n"
-    "메모: Coinalyze UI 문구는 조금 바뀔 수 있지만 핵심 조합은 "
-    "BitMEX + BTC/USD Perp + trade size greater than + 1000000 입니다."
+    "硫붾え: Coinalyze UI 臾멸뎄??議곌툑 諛붾????덉?留??듭떖 議고빀? "
+    "BitMEX + BTC/USD Perp + trade size greater than + 1000000 ?낅땲??"
 )
 
 BITMEX_WHALE_HELP_TEXT = (
-    "BitMEX 고래 포지션 추정은 Coinalyze API가 필요합니다.\n"
-    ".env에 COINALYZE_API_KEY를 넣은 뒤 /bitmexwhale 를 보내면,\n"
-    "최근 5분 OI와 최근 15분 매수우위(CVD 대용)·청산·펀딩을 같이 읽어서\n"
-    "신규 롱/신규 숏/롱 정리/숏 커버링 중 어디에 가까운지 추정해 드립니다."
+    "BitMEX 怨좊옒 ?ъ???異붿젙? Coinalyze API媛 ?꾩슂?⑸땲??\n"
+    ".env??COINALYZE_API_KEY瑜??ｌ? ??/bitmexwhale 瑜?蹂대궡硫?\n"
+    "理쒓렐 5遺?OI? 理쒓렐 15遺?留ㅼ닔?곗쐞(CVD ???쨌泥?궛쨌??⑹쓣 媛숈씠 ?쎌뼱??n"
+    "?좉퇋 濡??좉퇋 ??濡??뺣━/??而ㅻ쾭留?以??대뵒??媛源뚯슫吏 異붿젙???쒕┰?덈떎."
 )
 
 WATCH_WHALES_TEXT = (
-    "BitMEX 대형 체결 자동 알림을 등록했습니다.\n"
-    f"- 기준 체결: {get_trade_threshold():,} contracts\n"
-    f"- 체크 주기: {get_poll_interval_seconds()}초\n"
-    "- 이 채팅방으로 대형 체결이 나오면 먼저 보내드릴게요.\n"
-    "- 봇이 실행 중이어야 자동 알림이 동작합니다."
+    "BitMEX ???泥닿껐 ?먮룞 ?뚮┝???깅줉?덉뒿?덈떎.\n"
+    f"- 湲곗? 泥닿껐: {get_trade_threshold():,} contracts\n"
+    f"- 泥댄겕 二쇨린: {get_poll_interval_seconds()}珥?n"
+    "- ??梨꾪똿諛⑹쑝濡????泥닿껐???섏삤硫?癒쇱? 蹂대궡?쒕┫寃뚯슂.\n"
+    "- 遊뉗씠 ?ㅽ뻾 以묒씠?댁빞 ?먮룞 ?뚮┝???숈옉?⑸땲??"
 )
 
-UNWATCH_WHALES_TEXT = "BitMEX 대형 체결 자동 알림을 이 채팅방에서 해제했습니다."
+UNWATCH_WHALES_TEXT = "BitMEX ???泥닿껐 ?먮룞 ?뚮┝????梨꾪똿諛⑹뿉???댁젣?덉뒿?덈떎."
 MARKET_QUESTION_HINT = (
-    "시장 질문이면 그냥 말로 물어보거라.\n"
-    "예: 지금 롱이냐 숏이냐 / 비트맥스 누가 때리냐 / OI 붙었냐"
-)
-MARKET_CORE_KEYWORDS = (
-    "롱",
-    "숏",
-    "포지션",
-    "비트맥스",
-    "bitmex",
-    "oi",
-    "cvd",
-    "펀딩",
-    "고래",
-    "상방",
-    "하방",
-    "매수",
-    "매도",
-    "진입",
-    "청산",
-)
-MARKET_ASSET_KEYWORDS = ("btc", "xbt", "비트코인", "bitcoin", "이더", "ethereum", "eth")
-MARKET_QUERY_CUES = (
-    "?",
-    "지금",
-    "어때",
-    "어떄",
-    "어떻",
-    "뭐",
-    "누가",
-    "인가",
-    "이냐",
-    "냐",
-    "까",
-    "붙었",
-    "때리",
-    "봐줘",
-    "봐주",
-    "분석",
-    "추정",
-    "확인",
-    "체크",
-    "기준",
-)
-MARKET_DIRECTION_CUES = (
-    "롱",
-    "숏",
-    "long",
-    "short",
-    "상방",
-    "하방",
-    "가격",
-    "포지션",
-    "매수",
-    "매도",
-    "진입",
-    "청산",
-    "oi",
-    "cvd",
-    "펀딩",
-    "고래",
-)
-GRANDMA_CALL_KEYWORDS = (
-    "할매",
-    "할머니",
-    "할미",
-    "할망",
-    "할매야",
-    "할머니야",
-    "할매님",
-    "할머니님",
-    "할마이",
-    "할마니",
-    "할무니",
-    "할머님",
-)
-GRANDMA_FOLLOW_UP_CUES = (
-    "음",
-    "응",
-    "왜",
-    "왜?",
-    "음?",
-    "응?",
-    "뭐",
-    "뭐해",
-    "어디갔",
-    "있냐",
-    "있나",
-    "안하네",
-    "반응",
-)
-GENERAL_CHAT_CUES = (
-    "?",
-    "왜",
-    "뭐",
-    "어때",
-    "어떻게",
-    "언제",
-    "가능",
-    "되냐",
-    "되나",
-    "해줘",
-    "보여줘",
-    "알려줘",
-    "안하네",
-    "작동",
-    "고장",
-    "망가",
-    "버그",
-    "뇌수술",
-)
-GRANDMA_SHORT_CALLS = (
-    "할매",
-    "할머니",
-    "할미",
-    "할망",
-    "음",
-    "음?",
-    "응",
-    "응?",
-    "왜",
-    "왜?",
-    "뭐",
-    "뭐?",
+    "?쒖옣 吏덈Ц?대㈃ 洹몃깷 留먮줈 臾쇱뼱蹂닿굅??\n"
+    "?? 吏湲?濡깆씠???륁씠??/ 鍮꾪듃留μ뒪 ?꾧? ?뚮━??/ OI 遺숈뿀??
 )
 
 
@@ -337,16 +216,16 @@ async def coinalyze(message: Message):
 @router.message(Command("bitmexwhale"))
 async def bitmexwhale(message: Message):
     await _maybe_auto_register_market_chat(message)
-    if not await _safe_answer(message, "BitMEX 고래 포지션 추정 중..."):
+    if not await _safe_answer(message, "BitMEX 怨좊옒 ?ъ???異붿젙 以?.."):
         return
 
     try:
         report = await asyncio.to_thread(get_bitmex_whale_report)
     except CoinalyzeError as exc:
-        await _safe_answer(message, f"{BITMEX_WHALE_HELP_TEXT}\n\n사유: {exc}")
+        await _safe_answer(message, f"{BITMEX_WHALE_HELP_TEXT}\n\n?ъ쑀: {exc}")
         return
     except Exception:
-        await _safe_answer(message, "BitMEX 고래 추정 중 예기치 않은 오류가 났습니다. 잠시 뒤 다시 시도해 주세요.")
+        await _safe_answer(message, "BitMEX 怨좊옒 異붿젙 以??덇린移??딆? ?ㅻ쪟媛 ?ъ뒿?덈떎. ?좎떆 ???ㅼ떆 ?쒕룄??二쇱꽭??")
         return
 
     await _safe_answer(message, report)
@@ -369,23 +248,23 @@ async def okxbiton(message: Message):
     if added:
         await _safe_answer(
             message,
-            "OKX 비트 딥밴드 알람을 이 채팅방에 등록했다.\n"
-            f"- 체크 주기: {get_okx_btc_poll_interval_seconds() // 3600}시간\n"
-            "- 메모: 처음 한 번은 현재 깊은 밴드를 기준값으로 잡고, 그 다음부터 새로 생기거나 더 두꺼워진 밴드만 알린다.",
+            "OKX 鍮꾪듃 ?λ객???뚮엺????梨꾪똿諛⑹뿉 ?깅줉?덈떎.\n"
+            f"- 泥댄겕 二쇨린: {get_okx_btc_poll_interval_seconds() // 3600}?쒓컙\n"
+            "- 硫붾え: 泥섏쓬 ??踰덉? ?꾩옱 源딆? 諛대뱶瑜?湲곗?媛믪쑝濡??↔퀬, 洹??ㅼ쓬遺???덈줈 ?앷린嫄곕굹 ???먭볼?뚯쭊 諛대뱶留??뚮┛??",
         )
         return
 
-    await _safe_answer(message, "이 채팅방은 이미 OKX 비트 딥밴드 알람을 받고 있다.")
+    await _safe_answer(message, "??梨꾪똿諛⑹? ?대? OKX 鍮꾪듃 ?λ객???뚮엺??諛쏄퀬 ?덈떎.")
 
 
 @router.message(Command("okxbitoff"))
 async def okxbitoff(message: Message):
     removed = await asyncio.to_thread(remove_okx_btc_subscription, message.chat.id)
     if removed:
-        await _safe_answer(message, "OKX 비트 딥밴드 알람을 이 채팅방에서 껐다.")
+        await _safe_answer(message, "OKX 鍮꾪듃 ?λ객???뚮엺????梨꾪똿諛⑹뿉??猿먮떎.")
         return
 
-    await _safe_answer(message, "이 채팅방은 아직 OKX 비트 딥밴드 알람에 등록되어 있지 않다.")
+    await _safe_answer(message, "??梨꾪똿諛⑹? ?꾩쭅 OKX 鍮꾪듃 ?λ객???뚮엺???깅줉?섏뼱 ?덉? ?딅떎.")
 
 
 @router.message(Command("okxbitstatus"))
@@ -393,7 +272,7 @@ async def okxbitstatus(message: Message):
     try:
         report = await asyncio.to_thread(get_okx_btc_status_report, message.chat.id)
     except OkxBtcAlertError as exc:
-        await _safe_answer(message, f"OKX 비트 알람 상태를 읽지 못했다.\n\n사유: {exc}")
+        await _safe_answer(message, f"OKX 鍮꾪듃 ?뚮엺 ?곹깭瑜??쎌? 紐삵뻽??\n\n?ъ쑀: {exc}")
         return
 
     await _safe_answer(message, report)
@@ -405,16 +284,16 @@ async def _answer_okx_heatmap_report(message: Message, *, asset: str) -> None:
     fetch_report = get_okx_eth_levels_report if normalized_asset == "eth" else get_okx_btc_levels_report
 
     await _acknowledge_message(message, is_market=True)
-    if not await _safe_answer(message, f"OKX {asset_label} 딥 히트맵 밴드를 뒤지고 있다..."):
+    if not await _safe_answer(message, f"OKX {asset_label} ???덊듃留?諛대뱶瑜??ㅼ?怨??덈떎..."):
         return
 
     try:
         report = await asyncio.to_thread(fetch_report)
     except OkxBtcAlertError as exc:
-        await _safe_answer(message, f"OKX {asset_label} 딥 히트맵 밴드를 가져오지 못했다.\n\n사유: {exc}")
+        await _safe_answer(message, f"OKX {asset_label} ???덊듃留?諛대뱶瑜?媛?몄삤吏 紐삵뻽??\n\n?ъ쑀: {exc}")
         return
     except Exception:
-        await _safe_answer(message, f"OKX {asset_label} 딥 히트맵 밴드를 정리하는 중에 에러가 났다. 잠시 후 다시 물어봐라.")
+        await _safe_answer(message, f"OKX {asset_label} ???덊듃留?諛대뱶瑜??뺣━?섎뒗 以묒뿉 ?먮윭媛 ?щ떎. ?좎떆 ???ㅼ떆 臾쇱뼱遊먮씪.")
         return
 
     await _safe_answer(message, report)
@@ -432,13 +311,13 @@ async def watchwhales(message: Message):
     if configured:
         await _safe_answer(
             message,
-            "이 채팅방은 서버 고정 등록으로 이미 BitMEX 자동 알림을 받고 있습니다.\n"
-            "- 재배포 후에도 유지됩니다.\n"
-            "- 현재 상태는 /trackstatus 로 다시 확인할 수 있습니다."
+            "??梨꾪똿諛⑹? ?쒕쾭 怨좎젙 ?깅줉?쇰줈 ?대? BitMEX ?먮룞 ?뚮┝??諛쏄퀬 ?덉뒿?덈떎.\n"
+            "- ?щ같???꾩뿉???좎??⑸땲??\n"
+            "- ?꾩옱 ?곹깭??/trackstatus 濡??ㅼ떆 ?뺤씤?????덉뒿?덈떎."
         )
         return
 
-    await _safe_answer(message, "이미 이 채팅방은 BitMEX 대형 체결 자동 알림을 받고 있습니다.")
+    await _safe_answer(message, "?대? ??梨꾪똿諛⑹? BitMEX ???泥닿껐 ?먮룞 ?뚮┝??諛쏄퀬 ?덉뒿?덈떎.")
 
 
 @router.message(Command("unwatchwhales"))
@@ -450,9 +329,9 @@ async def unwatchwhales(message: Message):
         if configured:
             await _safe_answer(
                 message,
-                "이 채팅방의 수동 등록은 해제했습니다.\n"
-                "- 다만 서버 환경변수 BITMEX_ALERT_CHAT_IDS 에도 들어 있어서 알림은 계속 올 수 있습니다.\n"
-                "- 완전히 끄려면 그 변수에서 현재 chat_id를 빼야 합니다."
+                "??梨꾪똿諛⑹쓽 ?섎룞 ?깅줉? ?댁젣?덉뒿?덈떎.\n"
+                "- ?ㅻ쭔 ?쒕쾭 ?섍꼍蹂??BITMEX_ALERT_CHAT_IDS ?먮룄 ?ㅼ뼱 ?덉뼱???뚮┝? 怨꾩냽 ?????덉뒿?덈떎.\n"
+                "- ?꾩쟾???꾨젮硫?洹?蹂?섏뿉???꾩옱 chat_id瑜?鍮쇱빞 ?⑸땲??"
             )
             return
 
@@ -463,13 +342,13 @@ async def unwatchwhales(message: Message):
     if configured:
         await _safe_answer(
             message,
-            "이 채팅방은 서버 환경변수 BITMEX_ALERT_CHAT_IDS 로 고정 등록돼 있습니다.\n"
-            "- 현재 chat_id는 /chatid 로 볼 수 있습니다.\n"
-            "- 완전히 끄려면 서버 변수에서 그 chat_id를 빼 주세요."
+            "??梨꾪똿諛⑹? ?쒕쾭 ?섍꼍蹂??BITMEX_ALERT_CHAT_IDS 濡?怨좎젙 ?깅줉???덉뒿?덈떎.\n"
+            "- ?꾩옱 chat_id??/chatid 濡?蹂????덉뒿?덈떎.\n"
+            "- ?꾩쟾???꾨젮硫??쒕쾭 蹂?섏뿉??洹?chat_id瑜?鍮?二쇱꽭??"
         )
         return
 
-    await _safe_answer(message, "이 채팅방은 아직 자동 알림 등록이 없습니다.")
+    await _safe_answer(message, "??梨꾪똿諛⑹? ?꾩쭅 ?먮룞 ?뚮┝ ?깅줉???놁뒿?덈떎.")
 
 
 @router.message(Command("trackstatus"))
@@ -483,26 +362,26 @@ async def trackstatus(message: Message):
     auto_register_enabled = await asyncio.to_thread(auto_register_on_market_interaction_enabled)
 
     lines = [
-        "BitMEX 자동 알림 상태",
-        f"- 현재 채팅: {'켜짐' if enabled else '꺼짐'}",
-        f"- 등록 방식: {source}",
-        f"- 기준 체결: {get_trade_threshold():,} contracts ({format_trade_threshold_label()})",
-        f"- 체크 주기: {get_poll_interval_seconds()}초",
-        f"- Coinalyze 추정: {'가능' if coinalyze_ready else 'API 키 없음'}",
-        f"- 자동 재등록: {'켜짐' if auto_register_enabled else '꺼짐'}",
+        "BitMEX ?먮룞 ?뚮┝ ?곹깭",
+        f"- ?꾩옱 梨꾪똿: {'耳쒖쭚' if enabled else '爰쇱쭚'}",
+        f"- ?깅줉 諛⑹떇: {source}",
+        f"- 湲곗? 泥닿껐: {get_trade_threshold():,} contracts ({format_trade_threshold_label()})",
+        f"- 泥댄겕 二쇨린: {get_poll_interval_seconds()}珥?,
+        f"- Coinalyze 異붿젙: {'媛?? if coinalyze_ready else 'API ???놁쓬'}",
+        f"- ?먮룞 ?щ벑濡? {'耳쒖쭚' if auto_register_enabled else '爰쇱쭚'}",
         f"- chat_id: {message.chat.id}",
     ]
 
     if configured_enabled:
-        lines.append("- 메모: 서버 환경변수에 등록돼 있어 재배포 후에도 유지됩니다.")
+        lines.append("- 硫붾え: ?쒕쾭 ?섍꼍蹂?섏뿉 ?깅줉???덉뼱 ?щ같???꾩뿉???좎??⑸땲??")
     elif enabled and auto_register_enabled:
-        lines.append("- 메모: 현재는 런타임 등록입니다. 재배포 후에도 /trackstatus, /bitmexwhale, /coinalyze 또는 BitMEX 질문이 오면 자동으로 다시 붙습니다.")
+        lines.append("- 硫붾え: ?꾩옱???고????깅줉?낅땲?? ?щ같???꾩뿉??/trackstatus, /bitmexwhale, /coinalyze ?먮뒗 BitMEX 吏덈Ц???ㅻ㈃ ?먮룞?쇰줈 ?ㅼ떆 遺숈뒿?덈떎.")
     elif enabled:
-        lines.append("- 메모: 현재는 런타임 등록이라 재배포 후에는 다시 /trackon 이 필요할 수 있습니다.")
+        lines.append("- 硫붾え: ?꾩옱???고????깅줉?대씪 ?щ같???꾩뿉???ㅼ떆 /trackon ???꾩슂?????덉뒿?덈떎.")
     elif auto_register_enabled:
-        lines.append("- 메모: 아직 꺼져 있어도 /trackstatus, /bitmexwhale, /coinalyze 또는 BitMEX 질문이 오면 자동으로 켜집니다.")
+        lines.append("- 硫붾え: ?꾩쭅 爰쇱졇 ?덉뼱??/trackstatus, /bitmexwhale, /coinalyze ?먮뒗 BitMEX 吏덈Ц???ㅻ㈃ ?먮룞?쇰줈 耳쒖쭛?덈떎.")
     else:
-        lines.append("- 메모: 자동 알림을 켜려면 /trackon 을 보내면 됩니다.")
+        lines.append("- 硫붾え: ?먮룞 ?뚮┝??耳쒕젮硫?/trackon ??蹂대궡硫??⑸땲??")
 
     await _safe_answer(message, "\n".join(lines))
 
@@ -521,16 +400,16 @@ async def testwhalealert(message: Message):
     )
     threshold_label = format_trade_threshold_label()
     header = format_trade_alert_header(fake_trade).replace(
-        f"BitMEX {threshold_label} 자동 알림",
-        f"BitMEX {threshold_label} 테스트 알림",
+        f"BitMEX {threshold_label} ?먮룞 ?뚮┝",
+        f"BitMEX {threshold_label} ?뚯뒪???뚮┝",
         1,
     )
     report = (
-        "BitMEX 고래 포지션 추정\n"
-        "- 추정: 테스트 알림입니다\n"
-        "- 신뢰도: 테스트\n"
-        "- 한줄 요약: 실제 체결이 아니라 자동 알림 경로 확인용입니다.\n"
-        "- 메모: 실전에서는 여기에 OI/CVD/청산/펀딩 기반 추정이 붙습니다."
+        "BitMEX 怨좊옒 ?ъ???異붿젙\n"
+        "- 異붿젙: ?뚯뒪???뚮┝?낅땲??n"
+        "- ?좊ː?? ?뚯뒪??n"
+        "- ?쒖쨪 ?붿빟: ?ㅼ젣 泥닿껐???꾨땲???먮룞 ?뚮┝ 寃쎈줈 ?뺤씤?⑹엯?덈떎.\n"
+        "- 硫붾え: ?ㅼ쟾?먯꽌???ш린??OI/CVD/泥?궛/???湲곕컲 異붿젙??遺숈뒿?덈떎."
     )
     await _safe_answer(message, f"{header}\n\n{report}")
 
@@ -551,14 +430,16 @@ async def market_chat(message: Message):
     if _is_reply_to_kiyotaka_progress_message(message):
         market_label = _ACTIVE_KIYOTAKA_CAPTURES.get(message.chat.id)
         if market_label:
-            await _safe_answer(message, f"{market_label} 캡처는 아직 찍는 중이다. 완료되면 사진으로 따로 올린다.")
+            await _safe_answer(message, f"{market_label} 罹≪쿂???꾩쭅 李띾뒗 以묒씠?? ?꾨즺?섎㈃ ?ъ쭊?쇰줈 ?곕줈 ?щ┛??")
         else:
-            await _safe_answer(message, "방금 Kiyotaka 작업은 끝났거나 서버 재시작으로 끊겼다. 필요하면 /bipaeth 한 번 더 보내줘.")
+            await _safe_answer(message, "諛⑷툑 Kiyotaka ?묒뾽? ?앸궗嫄곕굹 ?쒕쾭 ?ъ떆?묒쑝濡??딄꼈?? ?꾩슂?섎㈃ /bipaeth ??踰???蹂대궡以?")
         return
 
     reply_to_message = getattr(message, "reply_to_message", None)
     replied_to_bot = bool(
-        reply_to_message and getattr(getattr(reply_to_message, "from_user", None), "is_bot", False)
+        reply_to_message
+        and BOT_USER_ID is not None
+        and getattr(getattr(reply_to_message, "from_user", None), "id", None) == BOT_USER_ID
     )
     mentioned_bot = _is_explicit_bot_mention(message)
     route = await route_message_with_pydantic_ai(
@@ -599,10 +480,10 @@ async def market_chat(message: Message):
         try:
             report = await asyncio.to_thread(get_recent_whale_trades_report)
         except BitmexWatcherError as exc:
-            await _safe_answer(message, f"최근 BitMEX 고래 체결 내역을 가져오지 못했습니다.\n\n사유: {exc}")
+            await _safe_answer(message, f"理쒓렐 BitMEX 怨좊옒 泥닿껐 ?댁뿭??媛?몄삤吏 紐삵뻽?듬땲??\n\n?ъ쑀: {exc}")
             return
         except Exception:
-            await _safe_answer(message, "BitMEX 체결 내역 정리 중에 잠깐 꼬였구나. 조금 있다가 다시 물어보거라.")
+            await _safe_answer(message, "BitMEX 泥닿껐 ?댁뿭 ?뺣━ 以묒뿉 ?좉퉸 瑗ъ?援щ굹. 議곌툑 ?덈떎媛 ?ㅼ떆 臾쇱뼱蹂닿굅??")
             return
 
         await _safe_answer(message, report)
@@ -612,17 +493,17 @@ async def market_chat(message: Message):
         await _maybe_auto_register_market_chat(message)
         await _acknowledge_message(message, is_market=True)
         if route.tool != "bitmex":
-            await _safe_answer(message, "할매가 쓸 수 있는 시장 도구를 고르지 못했구나. OKX 히트맵이나 BitMEX 중 뭘 볼지 다시 말해다오.")
+            await _safe_answer(message, "?좊ℓ媛 ?????덈뒗 ?쒖옣 ?꾧뎄瑜?怨좊Ⅴ吏 紐삵뻽援щ굹. OKX ?덊듃留듭씠??BitMEX 以?萸?蹂쇱? ?ㅼ떆 留먰빐?ㅼ삤.")
             return
-        if not await _safe_answer(message, "할매가 비트맥스 흐름 보고 오는 중이구나..."):
+        if not await _safe_answer(message, "?좊ℓ媛 鍮꾪듃留μ뒪 ?먮쫫 蹂닿퀬 ?ㅻ뒗 以묒씠援щ굹..."):
             return
         try:
             reply = await asyncio.to_thread(get_bitmex_whale_grandma_reply, text)
         except CoinalyzeError as exc:
-            await _safe_answer(message, f"{BITMEX_WHALE_HELP_TEXT}\n\n사유: {exc}")
+            await _safe_answer(message, f"{BITMEX_WHALE_HELP_TEXT}\n\n?ъ쑀: {exc}")
             return
         except Exception:
-            await _safe_answer(message, "시장 흐름 읽는 중에 잠깐 헷갈렸구나. 조금 있다가 다시 물어보거라.")
+            await _safe_answer(message, "?쒖옣 ?먮쫫 ?쎈뒗 以묒뿉 ?좉퉸 ?룰컝?멸뎄?? 議곌툑 ?덈떎媛 ?ㅼ떆 臾쇱뼱蹂닿굅??")
             return
 
         violation = find_reply_constraint_violation(reply, route.constraints, selected_tool=route.tool)
@@ -642,7 +523,7 @@ async def market_chat(message: Message):
     if intent == "casual":
         await _acknowledge_message(message, is_market=False)
 
-        # 명령어/기능 문의는 LLM 거치지 않고 바로 Help 안내
+        # 紐낅졊??湲곕뒫 臾몄쓽??LLM 嫄곗튂吏 ?딄퀬 諛붾줈 Help ?덈궡
         if is_help_request(text):
             await _safe_answer(message, HELP_TEXT)
             return
@@ -692,31 +573,31 @@ async def run_bitmex_whale_watcher(bot: Bot):
                     try:
                         report = await asyncio.to_thread(get_bitmex_whale_report)
                     except CoinalyzeError as exc:
-                        report = f"Coinalyze 분석 실패: {exc}"
+                        report = f"Coinalyze 遺꾩꽍 ?ㅽ뙣: {exc}"
 
                     alert_text = f"{header}\n\n{report}"
                     for chat_id in chat_ids:
                         try:
                             await bot.send_message(chat_id, alert_text)
                             logger.info(
-                                f"[BitMEX Watcher] alert sent trade_id={trade.trade_id} "
-                                f"chat_id={chat_id} local_time='{trade.local_time}' "
-                                f"side={trade.side} size={trade.size} symbol={trade.symbol} "
-                                f"delayed={delayed} delay_seconds={delay_seconds}"
+                                "[BitMEX Watcher] alert sent trade_id=%s chat_id=%s local_time=%r side=%s size=%s symbol=%s delayed=%s delay_seconds=%s",
+                                trade.trade_id, chat_id, trade.local_time,
+                                trade.side, trade.size, trade.symbol,
+                                delayed, delay_seconds,
                             )
                         except TelegramForbiddenError as exc:
                             await _cleanup_failed_runtime_subscription(chat_id)
-                            logger.error(f"[BitMEX Watcher] send forbidden for chat {chat_id}: {exc}")
+                            logger.error("[BitMEX Watcher] send forbidden for chat %s: %s", chat_id, exc)
                         except TelegramBadRequest as exc:
                             if _is_terminal_chat_error(exc):
                                 await _cleanup_failed_runtime_subscription(chat_id)
-                            logger.error(f"[BitMEX Watcher] send bad request for chat {chat_id}: {exc}")
+                            logger.error("[BitMEX Watcher] send bad request for chat %s: %s", chat_id, exc)
                         except Exception:
-                            logger.exception(f"[BitMEX Watcher] send failed for chat {chat_id}")
+                            logger.exception("[BitMEX Watcher] send failed for chat %s", chat_id)
         except BitmexWatcherError as exc:
-            logger.error(f"[BitMEX Watcher] {exc}")
+            logger.error("[BitMEX Watcher] %s", exc)
         except Exception:
-            logger.exception(f"[BitMEX Watcher] unexpected error")
+            logger.exception("[BitMEX Watcher] unexpected error")
 
         await asyncio.sleep(get_poll_interval_seconds())
 
@@ -777,7 +658,7 @@ async def _cleanup_failed_okx_btc_subscription(chat_id: int) -> None:
 async def _maybe_auto_register_market_chat(message: Message) -> None:
     added = await asyncio.to_thread(ensure_subscription_for_market_interaction, message.chat.id)
     if added:
-        logger.info(f"[BitMEX Watcher] auto-registered chat {message.chat.id} from market interaction")
+        logger.info("[BitMEX Watcher] auto-registered chat %s from market interaction", message.chat.id)
 
 
 def _is_terminal_chat_error(exc: TelegramBadRequest) -> bool:
@@ -788,12 +669,12 @@ def _is_terminal_chat_error(exc: TelegramBadRequest) -> bool:
 
 def _describe_subscription_source(runtime_enabled: bool, configured_enabled: bool) -> str:
     if runtime_enabled and configured_enabled:
-        return "수동 등록 + 서버 고정 등록"
+        return "?섎룞 ?깅줉 + ?쒕쾭 怨좎젙 ?깅줉"
     if configured_enabled:
-        return "서버 고정 등록"
+        return "?쒕쾭 怨좎젙 ?깅줉"
     if runtime_enabled:
-        return "수동 등록"
-    return "미등록"
+        return "?섎룞 ?깅줉"
+    return "誘몃벑濡?
 
 
 def _looks_like_market_question(text: str) -> bool:
@@ -808,7 +689,9 @@ def _looks_like_market_question(text: str) -> bool:
 def _looks_like_casual_chat(message: Message) -> bool:
     reply_to_message = getattr(message, "reply_to_message", None)
     replied_to_bot = bool(
-        reply_to_message and getattr(getattr(reply_to_message, "from_user", None), "is_bot", False)
+        reply_to_message
+        and BOT_USER_ID is not None
+        and getattr(getattr(reply_to_message, "from_user", None), "id", None) == BOT_USER_ID
     )
     mentioned_bot = _is_explicit_bot_mention(message)
     return classify_message_intent(
@@ -848,13 +731,13 @@ def _build_route_clarification_reply(route) -> str:
         return _build_bitmex_excluded_market_reply()
     if "okx_heatmap" in excluded:
         return (
-            "알겠다. OKX 히트맵 기준은 빼고 보라는 뜻으로 받았다.\n\n"
-            "지금 요청은 OKX 쪽 도구로 처리되는 형태라, 그걸 빼면 바로 조회하긴 어렵다. "
-            "BitMEX 고래 흐름으로 볼지, 아니면 그냥 말로만 정리할지 다시 말해다오."
+            "?뚭쿋?? OKX ?덊듃留?湲곗?? 鍮쇨퀬 蹂대씪???살쑝濡?諛쏆븯??\n\n"
+            "吏湲??붿껌? OKX 履??꾧뎄濡?泥섎━?섎뒗 ?뺥깭?? 洹멸구 鍮쇰㈃ 諛붾줈 議고쉶?섍릿 ?대졄?? "
+            "BitMEX 怨좊옒 ?먮쫫?쇰줈 蹂쇱?, ?꾨땲硫?洹몃깷 留먮줈留??뺣━?좎? ?ㅼ떆 留먰빐?ㅼ삤."
         )
     if "kiyotaka_capture" in excluded:
-        return "알겠다. 사진이나 캡처는 빼고 텍스트로만 정리하겠다. 어떤 시장 기준으로 볼지 한 번만 더 말해다오."
-    return "알겠다. 네가 뺀 기준이 있어서 바로 도구를 돌리진 않겠다. 어떤 기준으로 볼지 다시 말해다오."
+        return "?뚭쿋?? ?ъ쭊?대굹 罹≪쿂??鍮쇨퀬 ?띿뒪?몃줈留??뺣━?섍쿋?? ?대뼡 ?쒖옣 湲곗??쇰줈 蹂쇱? ??踰덈쭔 ??留먰빐?ㅼ삤."
+    return "?뚭쿋?? ?ㅺ? 類 湲곗????덉뼱??諛붾줈 ?꾧뎄瑜??뚮━吏??딄쿋?? ?대뼡 湲곗??쇰줈 蹂쇱? ?ㅼ떆 留먰빐?ㅼ삤."
 
 
 async def _safe_answer_photo(message: Message, photo_bytes: bytes, *, caption: str | None = None, filename: str = "chart.png") -> bool:
@@ -948,7 +831,7 @@ def _get_kiyotaka_capture_eta_text(spec, jobs: tuple[tuple[str, tuple[float, ...
     job_count = max(1, len(jobs))
     timeout_seconds = (job_count * _get_kiyotaka_capture_timeout_for_spec_ms(spec)) // 1000
     typical_seconds = min(timeout_seconds, job_count * _get_kiyotaka_typical_capture_seconds_per_job())
-    return f"예상 {_format_eta_duration(typical_seconds)}, 최대 {_format_eta_duration(timeout_seconds)}"
+    return f"?덉긽 {_format_eta_duration(typical_seconds)}, 理쒕? {_format_eta_duration(timeout_seconds)}"
 
 
 def _get_kiyotaka_typical_capture_seconds_per_job() -> int:
@@ -963,8 +846,8 @@ def _get_kiyotaka_typical_capture_seconds_per_job() -> int:
 def _format_eta_duration(seconds: int) -> str:
     minutes = max(1, (max(0, int(seconds)) + 59) // 60)
     if minutes <= 1:
-        return "1분 이내"
-    return f"약 {minutes}분"
+        return "1遺??대궡"
+    return f"??{minutes}遺?
 
 
 async def _maybe_answer_kiyotaka_snapshot(
@@ -984,10 +867,10 @@ async def _maybe_answer_kiyotaka_snapshot(
         market_label = _get_kiyotaka_api_market_label(spec)
         progress_text = (
             f"{spec.title}\n"
-            f"작동 중이다. Kiyotaka API로 {market_label} 진한 오더벽을 조회 중이다.\n"
-            "- API 키 확인\n"
-            "- 흐릿한 물량 제외하고 오래 유지된 밴드만 필터링 중\n"
-            f"- {'Kiyotaka 캡처 준비 중' if capture_allowed else '요청대로 텍스트 응답 모드'}"
+            f"?묐룞 以묒씠?? Kiyotaka API濡?{market_label} 吏꾪븳 ?ㅻ뜑踰쎌쓣 議고쉶 以묒씠??\n"
+            "- API ???뺤씤\n"
+            "- ?먮┸??臾쇰웾 ?쒖쇅?섍퀬 ?ㅻ옒 ?좎???諛대뱶留??꾪꽣留?以?n"
+            f"- {'Kiyotaka 罹≪쿂 以鍮?以? if capture_allowed else '?붿껌?濡??띿뒪???묐떟 紐⑤뱶'}"
         )
         status_message = await _safe_progress_answer(message, progress_text)
         try:
@@ -998,16 +881,16 @@ async def _maybe_answer_kiyotaka_snapshot(
             if _kiyotaka_browser_fallback_enabled() and capture_allowed:
                 await _safe_edit_message_text(
                     status_message,
-                    f"{spec.title}\nKiyotaka API가 실패해서 브라우저 캡처 fallback으로 넘어간다.",
+                    f"{spec.title}\nKiyotaka API媛 ?ㅽ뙣?댁꽌 釉뚮씪?곗? 罹≪쿂 fallback?쇰줈 ?섏뼱媛꾨떎.",
                 )
             else:
                 await _safe_edit_message_text(
                     status_message,
-                    f"{spec.title}\nKiyotaka API 조회가 실패해서 링크 안내로 대신 남긴다.",
+                    f"{spec.title}\nKiyotaka API 議고쉶媛 ?ㅽ뙣?댁꽌 留곹겕 ?덈궡濡?????④릿??",
                 )
                 await _safe_answer(
                     message,
-                    build_kiyotaka_shortcut_reply(spec, note=f"API 조회 실패: {exc}"),
+                    build_kiyotaka_shortcut_reply(spec, note=f"API 議고쉶 ?ㅽ뙣: {exc}"),
                 )
                 return True
         else:
@@ -1016,15 +899,15 @@ async def _maybe_answer_kiyotaka_snapshot(
                 eta_text = _get_kiyotaka_capture_eta_text(spec, jobs)
                 await _safe_edit_message_text(
                     status_message,
-                    f"{spec.title}\nAPI 조회 완료. 텍스트 먼저 보내고 Kiyotaka 캡처는 뒤에서 찍는 중이다. {eta_text}.",
+                    f"{spec.title}\nAPI 議고쉶 ?꾨즺. ?띿뒪??癒쇱? 蹂대궡怨?Kiyotaka 罹≪쿂???ㅼ뿉??李띾뒗 以묒씠?? {eta_text}.",
                 )
-                await _safe_answer(message, f"{report}\n\n캡처는 뒤에서 찍고 있다. {eta_text}. 완료되면 사진으로 이어서 보낸다.")
+                await _safe_answer(message, f"{report}\n\n罹≪쿂???ㅼ뿉??李띻퀬 ?덈떎. {eta_text}. ?꾨즺?섎㈃ ?ъ쭊?쇰줈 ?댁뼱??蹂대궦??")
                 _start_kiyotaka_capture_task(message, spec, report, focus_prices, status_message)
                 return True
 
             await _safe_edit_message_text(
                 status_message,
-                f"{spec.title}\nKiyotaka API 조회 완료. {'요청대로 캡처는 쓰지 않았다.' if not capture_allowed else '브라우저 캡처는 쓰지 않았다.'}",
+                f"{spec.title}\nKiyotaka API 議고쉶 ?꾨즺. {'?붿껌?濡?罹≪쿂???곗? ?딆븯??' if not capture_allowed else '釉뚮씪?곗? 罹≪쿂???곗? ?딆븯??'}",
             )
             await _safe_answer(message, report)
             await _safe_delete_message(status_message)
@@ -1033,15 +916,15 @@ async def _maybe_answer_kiyotaka_snapshot(
     if not capture_allowed:
         await _safe_answer(
             message,
-            build_kiyotaka_shortcut_reply(spec, note="요청대로 사진/캡처는 쓰지 않고 텍스트 안내만 남긴다."),
+            build_kiyotaka_shortcut_reply(spec, note="?붿껌?濡??ъ쭊/罹≪쿂???곗? ?딄퀬 ?띿뒪???덈궡留??④릿??"),
         )
         return True
 
     progress_text = (
         f"{spec.title}\n"
-        "할매가 Kiyotaka 차트 찾고 있다. 브라우저 fallback 모드다.\n"
-        "- 심볼 검색 중\n"
-        "- 히트맵 캡처 준비 중"
+        "?좊ℓ媛 Kiyotaka 李⑦듃 李얘퀬 ?덈떎. 釉뚮씪?곗? fallback 紐⑤뱶??\n"
+        "- ?щ낵 寃??以?n"
+        "- ?덊듃留?罹≪쿂 以鍮?以?
     )
     status_message = await _safe_progress_answer(message, progress_text)
     typing_stop = asyncio.Event()
@@ -1056,11 +939,11 @@ async def _maybe_answer_kiyotaka_snapshot(
             await typing_task
         await _safe_edit_message_text(
             status_message,
-            f"{spec.title}\n할매가 스크린샷은 못 찍어서 링크로 대신 챙겨왔다.",
+            f"{spec.title}\n?좊ℓ媛 ?ㅽ겕由곗꺑? 紐?李띿뼱??留곹겕濡????梨숆꺼?붾떎.",
         )
         await _safe_answer(
             message,
-            build_kiyotaka_shortcut_reply(spec, note=f"스크린샷은 지금 못 찍어서 링크로 대신 보낸다. 사유: {exc}"),
+            build_kiyotaka_shortcut_reply(spec, note=f"?ㅽ겕由곗꺑? 吏湲?紐?李띿뼱??留곹겕濡????蹂대궦?? ?ъ쑀: {exc}"),
         )
         return True
     except Exception:
@@ -1070,11 +953,11 @@ async def _maybe_answer_kiyotaka_snapshot(
             await typing_task
         await _safe_edit_message_text(
             status_message,
-            f"{spec.title}\n할매가 스크린샷 만들다 잠깐 헷갈렸다. 링크로 대신 보낸다.",
+            f"{spec.title}\n?좊ℓ媛 ?ㅽ겕由곗꺑 留뚮뱾???좉퉸 ?룰컝?몃떎. 留곹겕濡????蹂대궦??",
         )
         await _safe_answer(
             message,
-            build_kiyotaka_shortcut_reply(spec, note="스크린샷 생성 중 예기치 않은 오류가 나서 링크로 대신 보낸다."),
+            build_kiyotaka_shortcut_reply(spec, note="?ㅽ겕由곗꺑 ?앹꽦 以??덇린移??딆? ?ㅻ쪟媛 ?섏꽌 留곹겕濡????蹂대궦??"),
         )
         return True
     finally:
@@ -1085,7 +968,7 @@ async def _maybe_answer_kiyotaka_snapshot(
     caption = f"{spec.title}\n{spec.search_query} | {spec.timeframe} | {spec.view}"
     await _safe_edit_message_text(
         status_message,
-        f"{spec.title}\n할매가 히트맵 캡처해서 보내는 중이다.",
+        f"{spec.title}\n?좊ℓ媛 ?덊듃留?罹≪쿂?댁꽌 蹂대궡??以묒씠??",
     )
     sent = await _safe_answer_photo(
         message,
@@ -1098,7 +981,7 @@ async def _maybe_answer_kiyotaka_snapshot(
     else:
         await _safe_edit_message_text(
             status_message,
-            f"{spec.title}\n사진 전송이 꼬여서 텍스트 안내로 대신 남긴다.",
+            f"{spec.title}\n?ъ쭊 ?꾩넚??瑗ъ뿬???띿뒪???덈궡濡?????④릿??",
         )
     if not sent:
         await _safe_answer(message, build_kiyotaka_shortcut_reply(spec))
@@ -1123,7 +1006,7 @@ def _get_kiyotaka_api_report_for_spec(spec) -> str:
 
 def _get_kiyotaka_api_result_for_spec(spec) -> tuple[str, tuple[float, ...]]:
     if not has_kiyotaka_api_key():
-        raise OkxBtcAlertError("KIYOTAKA_API_KEY가 없습니다.")
+        raise OkxBtcAlertError("KIYOTAKA_API_KEY媛 ?놁뒿?덈떎.")
 
     normalized_asset = (spec.api_asset or "").strip().lower()
     if normalized_asset == "btc":
@@ -1132,7 +1015,7 @@ def _get_kiyotaka_api_result_for_spec(spec) -> tuple[str, tuple[float, ...]]:
         return get_okx_eth_levels_report(), ()
     if normalized_asset == "bitfinex_eth":
         return get_bitfinex_eth_levels_report_with_focus_prices()
-    raise OkxBtcAlertError(f"지원하지 않는 Kiyotaka API 자산입니다: {spec.api_asset}")
+    raise OkxBtcAlertError(f"吏?먰븯吏 ?딅뒗 Kiyotaka API ?먯궛?낅땲?? {spec.api_asset}")
 
 
 def _get_kiyotaka_capture_jobs(spec, focus_prices: tuple[float, ...]) -> tuple[tuple[str, tuple[float, ...]], ...]:
@@ -1208,7 +1091,7 @@ async def _send_kiyotaka_capture_when_ready(
                     eta_text = _get_kiyotaka_capture_eta_text(spec, jobs[index - 1 :])
                     await _safe_edit_message_text(
                         status_message,
-                        f"{spec.title}\nKiyotaka capture {index}/{len(jobs)}: {label}\n남은 {eta_text}.",
+                        f"{spec.title}\nKiyotaka capture {index}/{len(jobs)}: {label}\n?⑥? {eta_text}.",
                     )
                 photo_bytes = await capture_kiyotaka_screenshot(
                     spec,
@@ -1222,11 +1105,11 @@ async def _send_kiyotaka_capture_when_ready(
                     label,
                     exc,
                 )
-                await _safe_answer(message, f"{market_label} Kiyotaka capture failed ({label}): {exc}")
+                await _safe_answer(message, f"{market_label} Kiyotaka 罹≪쿂 ?ㅽ뙣 ({label}): {exc}")
                 continue
             except Exception:
                 logger.exception("[Kiyotaka] unexpected background screenshot failure for %s job=%s", spec.key, label)
-                await _safe_answer(message, f"{market_label} Kiyotaka capture failed ({label}).")
+                await _safe_answer(message, f"{market_label} Kiyotaka 罹≪쿂?먯꽌 ?덇린移??딆? ?ㅻ쪟媛 ?щ떎 ({label}).")
                 continue
 
             caption = f"{market_label} Kiyotaka capture {index}/{len(jobs)} - {label}"
@@ -1246,7 +1129,7 @@ async def _send_kiyotaka_capture_when_ready(
         else:
             await _safe_edit_message_text(
                 status_message,
-                f"{spec.title}\n캡처는 만들었지만 텔레그램 사진 전송이 실패했다.",
+                f"{spec.title}\n罹≪쿂??留뚮뱾?덉?留??붾젅洹몃옩 ?ъ쭊 ?꾩넚???ㅽ뙣?덈떎.",
             )
 
         _ = report
@@ -1263,7 +1146,7 @@ def _is_reply_to_kiyotaka_progress_message(message: Message) -> bool:
 
     source_text = (getattr(reply_to_message, "text", None) or getattr(reply_to_message, "caption", None) or "")
     normalized = source_text.lower()
-    return "kiyotaka" in normalized and ("캡처" in source_text or "capture" in normalized or "오더벽" in source_text)
+    return "kiyotaka" in normalized and ("罹≪쿂" in source_text or "capture" in normalized or "?ㅻ뜑踰? in source_text)
 
 
 def _kiyotaka_browser_fallback_enabled() -> bool:
@@ -1285,7 +1168,7 @@ async def _try_set_grandma_reaction(message: Message, *, reaction_candidates: li
             last_error = exc
 
     if last_error is not None:
-        logger.error(f"[Grandma Reaction] failed for chat {message.chat.id}, message {message.message_id}: {last_error}")
+        logger.error("[Grandma Reaction] failed for chat %s, message %s: %s", message.chat.id, message.message_id, last_error)
     return False
 
 
@@ -1318,7 +1201,7 @@ def _build_addressed_quick_reply(*, text: str, replied_to_bot: bool, mentioned_b
 
     stripped_text = _strip_explicit_bot_mentions(text).strip()
     if not stripped_text:
-        return build_grandma_quick_reply("할매")
+        return build_grandma_quick_reply("?좊ℓ")
 
     return build_grandma_quick_reply(stripped_text)
 
@@ -1359,9 +1242,9 @@ def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
 
 def _build_bitmex_excluded_market_reply() -> str:
     return (
-        "알겠다. 비트맥스 기준은 빼고 말하마.\n\n"
-        "다만 지금 할매한테 붙어 있는 실시간 단기 방향 도구는 BitMEX 쪽이라, 그걸 빼면 롱/숏을 숫자로 단정하긴 어렵다. "
-        "OKX 오더북/히트맵으로 보려면 `okx 비트 밴드 확인`처럼 물어보면 그 기준으로 다시 볼 수 있다."
+        "?뚭쿋?? 鍮꾪듃留μ뒪 湲곗?? 鍮쇨퀬 留먰븯留?\n\n"
+        "?ㅻ쭔 吏湲??좊ℓ?쒗뀒 遺숈뼱 ?덈뒗 ?ㅼ떆媛??④린 諛⑺뼢 ?꾧뎄??BitMEX 履쎌씠?? 洹멸구 鍮쇰㈃ 濡??륁쓣 ?レ옄濡??⑥젙?섍릿 ?대졄?? "
+        "OKX ?ㅻ뜑遺??덊듃留듭쑝濡?蹂대젮硫?`okx 鍮꾪듃 諛대뱶 ?뺤씤`泥섎읆 臾쇱뼱蹂대㈃ 洹?湲곗??쇰줈 ?ㅼ떆 蹂????덈떎."
     )
 
 
@@ -1413,3 +1296,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
