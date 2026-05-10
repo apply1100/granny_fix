@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,6 +16,7 @@ MAX_STORED_IDS = 200
 MAX_WATCHER_LOOKBACK_SECONDS = 300
 AGGREGATION_WINDOW_SECONDS = 2
 _DIRECT_HTTP_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+_CHAT_ID_PATTERN = re.compile(r"-?\d{9,}")
 
 
 class BitmexWatcherError(RuntimeError):
@@ -80,11 +82,10 @@ def get_configured_subscription_chat_ids() -> list[int]:
     if not raw_value.strip():
         return []
 
+    # Allow flexible formats (comma/newline/space separated, or copy-pasted snippets like
+    # "https://t.me/xxx[chat_id: -100...]" by extracting integer-looking chat ids.
     chat_ids: list[int] = []
-    for token in raw_value.replace("\n", ",").split(","):
-        token = token.strip()
-        if not token:
-            continue
+    for token in _CHAT_ID_PATTERN.findall(raw_value):
         try:
             chat_ids.append(int(token))
         except ValueError:

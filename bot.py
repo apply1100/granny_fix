@@ -8,7 +8,7 @@ from contextlib import suppress
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest, TelegramConflictError, TelegramForbiddenError
-from aiogram.types import BotCommand, BufferedInputFile, Message, ReactionTypeEmoji
+from aiogram.types import BotCommand, BufferedInputFile, Message, ReactionTypeEmoji, ReplyParameters
 from dotenv import load_dotenv
 from services.bitmex_watcher_service import (
     BitmexWatcherError,
@@ -18,8 +18,10 @@ from services.bitmex_watcher_service import (
     ensure_subscription_for_market_interaction,
     fetch_new_whale_trades,
     format_trade_alert_header,
+    get_configured_subscription_chat_ids,
     get_poll_interval_seconds,
     get_recent_whale_trades_report,
+    get_runtime_subscription_chat_ids,
     get_trade_delay_seconds,
     get_trade_threshold,
     format_trade_threshold_label,
@@ -31,18 +33,30 @@ from services.bitmex_watcher_service import (
 )
 from services.okx_btc_alert_service import (
     OkxBtcAlertError,
+    add_bitfinex_eth_subscription,
     add_okx_btc_subscription,
+    build_bitfinex_eth_alert_message,
     build_okx_btc_alert_message,
+    fetch_bitfinex_eth_persistent_wall_alerts,
     fetch_new_okx_btc_levels,
     get_bitfinex_eth_levels_report_with_focus_prices,
+    get_bitfinex_eth_alert_poll_interval_seconds,
+    get_bitfinex_eth_status_report,
+    get_configured_bitfinex_eth_subscription_chat_ids,
+    get_configured_okx_btc_subscription_chat_ids,
     get_okx_btc_levels_report,
     get_okx_btc_levels_report_with_focus_prices,
     get_okx_eth_levels_report,
     get_okx_btc_poll_interval_seconds,
     get_okx_btc_status_report,
+    get_runtime_bitfinex_eth_subscription_chat_ids,
+    get_runtime_okx_btc_subscription_chat_ids,
+    has_runtime_bitfinex_eth_subscription,
     has_runtime_okx_btc_subscription,
     has_kiyotaka_api_key,
+    list_bitfinex_eth_subscriptions,
     list_okx_btc_subscriptions,
+    remove_bitfinex_eth_subscription,
     remove_okx_btc_subscription,
 )
 from services.casual_chat_service import (
@@ -110,7 +124,11 @@ BOT_COMMANDS = [
     BotCommand(command="okxbtcusdtp", description="Show Kiyotaka API OKX BTC-USDT heatmap bands"),
     BotCommand(command="okxbtcusdtpwide", description="Show Kiyotaka API OKX BTC-USDT wide bands"),
     BotCommand(command="bipaeth", description="Show Kiyotaka API Bitfinex ETH strong order walls"),
+    BotCommand(command="bipaethon", description="Turn on Bitfinex ETH persistent wall alerts"),
+    BotCommand(command="bipaethoff", description="Turn off Bitfinex ETH wall alerts"),
+    BotCommand(command="bipaethstatus", description="Show Bitfinex ETH wall alert status"),
     BotCommand(command="coinalyze", description="Show Coinalyze alert setup"),
+    BotCommand(command="debugsubs", description="Debug alert subscription chat ids"),
     BotCommand(command="help", description="Show command help"),
 ]
 
@@ -133,7 +151,7 @@ HELP_TEXT = (
     "/okxbitstatus - OKX BTC 알람 상태 확인\n"
     "/okxbtcusdtp - Kiyotaka API OKX BTC-USDT PERP 히트맵 밴드 조회\n"
     "/okxbtcusdtpwide - Kiyotaka API OKX BTC-USDT PERP 와이드 밴드 조회\n"
-    "/bipaeth 또는 비파 이더 - BITFINEX ETHUSDT 진한 오더벽 조회\n"
+    "/bipaeth 또는 비파 이더 - BITFINEX ETHUST 진한 오더벽 조회\n"
     "/testwhalealert - 현재 채팅방으로 가짜 알림 테스트\n\n"
     "시장 질문은 그냥 문장으로 물어봐도 됩니다.\n"
     "예: 지금 롱이냐 숏이냐 / 비트맥스 누가 때리냐 / OI 붙었냐"
@@ -319,6 +337,63 @@ async def chatid(message: Message):
     await _safe_answer(message, f"chat_id: {message.chat.id}")
 
 
+def _format_chat_id_list(chat_ids: list[int], *, limit: int = 30) -> str:
+    if not chat_ids:
+        return "[]"
+    if len(chat_ids) <= limit:
+        return "[" + ", ".join(str(cid) for cid in chat_ids) + "]"
+    head = ", ".join(str(cid) for cid in chat_ids[:limit])
+    return "[" + head + f", ... (+{len(chat_ids) - limit} more)]"
+
+
+@router.message(Command("debugsubs"))
+@router.message(Command("debug_subs"))
+@router.message(Command("debug"))
+async def debugsubs(message: Message):
+    chat_id = message.chat.id
+
+    bitmex_configured = await asyncio.to_thread(get_configured_subscription_chat_ids)
+    bitmex_runtime = await asyncio.to_thread(get_runtime_subscription_chat_ids)
+    bitmex_all = await asyncio.to_thread(list_subscriptions)
+
+    okx_configured = await asyncio.to_thread(get_configured_okx_btc_subscription_chat_ids)
+    okx_runtime = await asyncio.to_thread(get_runtime_okx_btc_subscription_chat_ids)
+    okx_all = await asyncio.to_thread(list_okx_btc_subscriptions)
+    bitfinex_eth_configured = await asyncio.to_thread(get_configured_bitfinex_eth_subscription_chat_ids)
+    bitfinex_eth_runtime = await asyncio.to_thread(get_runtime_bitfinex_eth_subscription_chat_ids)
+    bitfinex_eth_all = await asyncio.to_thread(list_bitfinex_eth_subscriptions)
+
+    lines = [
+        "Subscription debug",
+        f"- chat_id: {chat_id}",
+        "",
+        "BitMEX whale alerts",
+        f"- configured (BITMEX_ALERT_CHAT_IDS): {_format_chat_id_list(bitmex_configured)}",
+        f"- runtime (memory): {_format_chat_id_list(bitmex_runtime)}",
+        f"- merged (will receive): {_format_chat_id_list(bitmex_all)}",
+        f"- this chat receives?: {'YES' if chat_id in set(bitmex_all) else 'NO'}",
+        "",
+        "OKX BTC alerts",
+        f"- configured (OKX_BTC_ALERT_CHAT_IDS): {_format_chat_id_list(okx_configured)}",
+        f"- runtime (memory): {_format_chat_id_list(okx_runtime)}",
+        f"- merged (will receive): {_format_chat_id_list(okx_all)}",
+        f"- this chat receives?: {'YES' if chat_id in set(okx_all) else 'NO'}",
+        "",
+        "BITFINEX ETH alerts",
+        f"- configured (BITFINEX_ETH_ALERT_CHAT_IDS): {_format_chat_id_list(bitfinex_eth_configured)}",
+        f"- runtime (memory): {_format_chat_id_list(bitfinex_eth_runtime)}",
+        f"- merged (will receive): {_format_chat_id_list(bitfinex_eth_all)}",
+        f"- this chat receives?: {'YES' if chat_id in set(bitfinex_eth_all) else 'NO'}",
+        "",
+        "Tips",
+        "- BitMEX: run /trackon in the target chat (or add chat_id to BITMEX_ALERT_CHAT_IDS).",
+        "- OKX: run /okxbiton in the target chat (or add chat_id to OKX_BTC_ALERT_CHAT_IDS).",
+        "- BITFINEX ETH: run /bipaethon in the target chat (or add chat_id to BITFINEX_ETH_ALERT_CHAT_IDS).",
+        "- If chat is muted (Unmute button shown), notifications may not pop even if messages arrive.",
+    ]
+    await _safe_answer(message, "\n".join(lines))
+
+
 @router.message(Command("okxbtcusdtp"))
 @router.message(Command("okxbtcusdp"))
 @router.message(Command("okxbtcusdtpwide"))
@@ -326,6 +401,42 @@ async def chatid(message: Message):
 @router.message(Command("bipaeth"))
 async def okxbtcusdtp(message: Message):
     await _maybe_answer_kiyotaka_snapshot(message, message.text or "/okxbtcusdtp")
+
+
+@router.message(Command("bipaethon"))
+async def bipaethon(message: Message):
+    added = await asyncio.to_thread(add_bitfinex_eth_subscription, message.chat.id)
+    if added:
+        await _safe_answer(
+            message,
+            "BITFINEX ETH 오더벽 알림을 이 채팅방에 켰다.\n"
+            f"- 체크 주기: {get_bitfinex_eth_alert_poll_interval_seconds()}초\n"
+            "- 조건: 큰 벽이 1시간 이상 유지되면 알림, 6시간 뒤에도 있으면 1회 재알림 후 종료",
+        )
+        return
+
+    await _safe_answer(message, "이 채팅방은 이미 BITFINEX ETH 오더벽 알림을 받고 있다.")
+
+
+@router.message(Command("bipaethoff"))
+async def bipaethoff(message: Message):
+    removed = await asyncio.to_thread(remove_bitfinex_eth_subscription, message.chat.id)
+    if removed:
+        await _safe_answer(message, "BITFINEX ETH 오더벽 알림을 이 채팅방에서 껐다.")
+        return
+
+    await _safe_answer(message, "이 채팅방은 아직 BITFINEX ETH 오더벽 알림에 등록되어 있지 않다.")
+
+
+@router.message(Command("bipaethstatus"))
+async def bipaethstatus(message: Message):
+    try:
+        report = await asyncio.to_thread(get_bitfinex_eth_status_report, message.chat.id)
+    except OkxBtcAlertError as exc:
+        await _safe_answer(message, f"BITFINEX ETH 오더벽 알림 상태를 읽지 못했다.\n\n사유: {exc}")
+        return
+
+    await _safe_answer(message, report)
 
 
 @router.message(Command("coinalyze"))
@@ -756,6 +867,42 @@ async def run_okx_btc_alert_watcher(bot: Bot):
         await asyncio.sleep(get_okx_btc_poll_interval_seconds())
 
 
+async def run_bitfinex_eth_alert_watcher(bot: Bot):
+    while True:
+        try:
+            chat_ids = await asyncio.to_thread(list_bitfinex_eth_subscriptions)
+            if chat_ids:
+                levels = await asyncio.to_thread(fetch_bitfinex_eth_persistent_wall_alerts)
+                if levels:
+                    alert_text = await asyncio.to_thread(build_bitfinex_eth_alert_message, levels)
+                    for chat_id in chat_ids:
+                        try:
+                            await bot.send_message(chat_id, alert_text)
+                            logger.info(
+                                "[BITFINEX ETH Watcher] alert sent chat_id=%s walls=%s top_wall=%s top_size=%s event=%s",
+                                chat_id,
+                                len(levels),
+                                levels[0].price_label,
+                                levels[0].max_size,
+                                levels[0].event,
+                            )
+                        except TelegramForbiddenError as exc:
+                            await _cleanup_failed_bitfinex_eth_subscription(chat_id)
+                            logger.error("[BITFINEX ETH Watcher] send forbidden for chat %s: %s", chat_id, exc)
+                        except TelegramBadRequest as exc:
+                            if _is_terminal_chat_error(exc):
+                                await _cleanup_failed_bitfinex_eth_subscription(chat_id)
+                            logger.error("[BITFINEX ETH Watcher] send bad request for chat %s: %s", chat_id, exc)
+                        except Exception:
+                            logger.exception("[BITFINEX ETH Watcher] send failed for chat %s", chat_id)
+        except OkxBtcAlertError as exc:
+            logger.error("[BITFINEX ETH Watcher] %s", exc)
+        except Exception:
+            logger.exception("[BITFINEX ETH Watcher] unexpected error")
+
+        await asyncio.sleep(get_bitfinex_eth_alert_poll_interval_seconds())
+
+
 async def register_bot_commands(bot: Bot):
     global BOT_USERNAME, BOT_USER_ID
     await bot.set_my_commands(BOT_COMMANDS)
@@ -772,6 +919,11 @@ async def _cleanup_failed_runtime_subscription(chat_id: int) -> None:
 async def _cleanup_failed_okx_btc_subscription(chat_id: int) -> None:
     if await asyncio.to_thread(has_runtime_okx_btc_subscription, chat_id):
         await asyncio.to_thread(remove_okx_btc_subscription, chat_id)
+
+
+async def _cleanup_failed_bitfinex_eth_subscription(chat_id: int) -> None:
+    if await asyncio.to_thread(has_runtime_bitfinex_eth_subscription, chat_id):
+        await asyncio.to_thread(remove_bitfinex_eth_subscription, chat_id)
 
 
 async def _maybe_auto_register_market_chat(message: Message) -> None:
@@ -827,7 +979,7 @@ async def _acknowledge_message(message: Message, *, is_market: bool) -> None:
 
 async def _safe_answer(message: Message, text: str) -> bool:
     try:
-        await message.answer(text)
+        await message.answer(text, **_reply_to_questioner_kwargs(message))
         return True
     except TelegramForbiddenError as exc:
         await _cleanup_failed_runtime_subscription(message.chat.id)
@@ -860,7 +1012,11 @@ def _build_route_clarification_reply(route) -> str:
 async def _safe_answer_photo(message: Message, photo_bytes: bytes, *, caption: str | None = None, filename: str = "chart.png") -> bool:
     photo = BufferedInputFile(photo_bytes, filename=filename)
     try:
-        await message.answer_photo(photo=photo, caption=caption)
+        await message.answer_photo(
+            photo=photo,
+            caption=caption,
+            **_reply_to_questioner_kwargs(message),
+        )
         return True
     except TelegramForbiddenError as exc:
         await _cleanup_failed_runtime_subscription(message.chat.id)
@@ -877,7 +1033,7 @@ async def _safe_answer_photo(message: Message, photo_bytes: bytes, *, caption: s
 
 async def _safe_progress_answer(message: Message, text: str) -> Message | None:
     try:
-        return await message.answer(text)
+        return await message.answer(text, **_reply_to_questioner_kwargs(message))
     except TelegramForbiddenError as exc:
         await _cleanup_failed_runtime_subscription(message.chat.id)
         logger.error("[Bot Progress] send forbidden for chat %s: %s", message.chat.id, exc)
@@ -889,6 +1045,26 @@ async def _safe_progress_answer(message: Message, text: str) -> Message | None:
             return None
         logger.error("[Bot Progress] send bad request for chat %s: %s", message.chat.id, exc)
         return None
+
+
+def _reply_to_questioner_kwargs(message: Message) -> dict:
+    if not _should_tag_questioner(message):
+        return {}
+
+    message_id = getattr(message, "message_id", None)
+    if message_id is None:
+        return {}
+
+    return {"reply_parameters": ReplyParameters(message_id=message_id)}
+
+
+def _should_tag_questioner(message: Message) -> bool:
+    chat_type = str(getattr(getattr(message, "chat", None), "type", ""))
+    if chat_type not in {"group", "supergroup"}:
+        return False
+
+    user = getattr(message, "from_user", None)
+    return bool(user and not getattr(user, "is_bot", False))
 
 
 async def _safe_edit_message_text(status_message: Message | None, text: str) -> None:
@@ -1398,6 +1574,7 @@ async def main():
     async with Bot(token=TOKEN) as bot:
         watcher_task = asyncio.create_task(run_bitmex_whale_watcher(bot))
         okx_watcher_task = asyncio.create_task(run_okx_btc_alert_watcher(bot))
+        bitfinex_eth_watcher_task = asyncio.create_task(run_bitfinex_eth_alert_watcher(bot))
         try:
             await register_bot_commands(bot)
             logger.info("Bot starting (aiogram)...")
@@ -1408,7 +1585,8 @@ async def main():
         finally:
             watcher_task.cancel()
             okx_watcher_task.cancel()
-            await asyncio.gather(watcher_task, okx_watcher_task, return_exceptions=True)
+            bitfinex_eth_watcher_task.cancel()
+            await asyncio.gather(watcher_task, okx_watcher_task, bitfinex_eth_watcher_task, return_exceptions=True)
 
 
 if __name__ == "__main__":

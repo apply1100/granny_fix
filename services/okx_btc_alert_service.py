@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -10,8 +11,10 @@ from pathlib import Path
 
 KIYOTAKA_POINTS_API_URL = "https://api.kiyotaka.ai/v1/points"
 OKX_BTC_ALERT_STATE_PATH = Path(__file__).resolve().parents[1] / "memory" / "okx_btc_alert_watch.json"
+BITFINEX_ETH_ALERT_STATE_PATH = Path(__file__).resolve().parents[1] / "memory" / "bitfinex_eth_alert_watch.json"
 SEOUL_TZ = timezone(timedelta(hours=9), "KST")
 _DIRECT_HTTP_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+_CHAT_ID_PATTERN = re.compile(r"-?\d{9,}")
 
 
 class OkxBtcAlertError(RuntimeError):
@@ -54,6 +57,7 @@ class OkxBtcHeatmapBand:
     max_size: float
     reference_price: float
     latest_snapshot_timestamp: int
+    first_snapshot_timestamp: int | None = None
     event: str = "new"
     previous_max_size: float | None = None
 
@@ -83,6 +87,15 @@ class OkxBtcHeatmapBand:
         if math.isclose(self.price_min, self.price_max):
             return _format_price_short(self.price_min)
         return f"{_format_price_short(self.price_min, mode='down')}-{_format_price_short(self.price_max, mode='up')}"
+
+    @property
+    def observed_seconds(self) -> int:
+        first_timestamp = (
+            self.latest_snapshot_timestamp
+            if self.first_snapshot_timestamp is None
+            else self.first_snapshot_timestamp
+        )
+        return max(0, self.latest_snapshot_timestamp - first_timestamp)
 
 
 @dataclass(frozen=True)
@@ -168,12 +181,24 @@ def get_bitfinex_eth_band_min_size() -> float:
     return float(os.getenv("BITFINEX_ETH_BAND_MIN_SIZE", "10"))
 
 
+def get_bitfinex_eth_alert_min_size() -> float:
+    return float(os.getenv("BITFINEX_ETH_ALERT_MIN_SIZE", "50"))
+
+
 def get_okx_btc_band_min_distance_pct() -> float:
     return float(os.getenv("OKX_BTC_BAND_MIN_DISTANCE_PCT", "0.5"))
 
 
 def get_okx_btc_band_max_distance_pct() -> float:
     return float(os.getenv("OKX_BTC_BAND_MAX_DISTANCE_PCT", "40"))
+
+
+def get_bitfinex_eth_alert_min_distance_pct() -> float:
+    return float(os.getenv("BITFINEX_ETH_ALERT_MIN_DISTANCE_PCT", "0.5"))
+
+
+def get_bitfinex_eth_alert_max_distance_pct() -> float:
+    return float(os.getenv("BITFINEX_ETH_ALERT_MAX_DISTANCE_PCT", "8"))
 
 
 def get_okx_btc_band_max_depth() -> int:
@@ -206,6 +231,27 @@ def get_bitfinex_eth_band_min_snapshots() -> int:
 
 def get_bitfinex_eth_band_min_persistence_ratio() -> float:
     return min(1.0, max(0.0, float(os.getenv("BITFINEX_ETH_BAND_MIN_PERSISTENCE_RATIO", "0.50"))))
+
+
+def get_bitfinex_eth_alert_hold_seconds() -> int:
+    return max(60, int(os.getenv("BITFINEX_ETH_ALERT_HOLD_SECONDS", "3600")))
+
+
+def get_bitfinex_eth_alert_followup_seconds() -> int:
+    return max(60, int(os.getenv("BITFINEX_ETH_ALERT_FOLLOWUP_SECONDS", "21600")))
+
+
+def get_bitfinex_eth_alert_poll_interval_seconds() -> int:
+    return max(60, int(os.getenv("BITFINEX_ETH_ALERT_POLL_INTERVAL_SECONDS", "3600")))
+
+
+def get_bitfinex_eth_alert_scan_period_seconds() -> int:
+    default_period = max(get_bitfinex_eth_alert_hold_seconds() * 2, 7200)
+    return max(get_bitfinex_eth_alert_hold_seconds(), int(os.getenv("BITFINEX_ETH_ALERT_SCAN_PERIOD_SECONDS", str(default_period))))
+
+
+def get_bitfinex_eth_alert_match_tolerance() -> float:
+    return max(0.1, float(os.getenv("BITFINEX_ETH_ALERT_MATCH_TOLERANCE", "5")))
 
 
 def get_okx_btc_alert_band_min_snapshots() -> int:
@@ -298,20 +344,50 @@ def get_configured_okx_btc_subscription_chat_ids() -> list[int]:
     return list(dict.fromkeys(chat_ids))
 
 
+def get_configured_bitfinex_eth_subscription_chat_ids() -> list[int]:
+    raw_value = os.getenv("BITFINEX_ETH_ALERT_CHAT_IDS", "")
+    if not raw_value.strip():
+        return []
+
+    chat_ids: list[int] = []
+    for token in _CHAT_ID_PATTERN.findall(raw_value):
+        try:
+            chat_ids.append(int(token))
+        except ValueError:
+            continue
+    return list(dict.fromkeys(chat_ids))
+
+
 def get_runtime_okx_btc_subscription_chat_ids() -> list[int]:
     return list(_load_state()["chat_ids"])
+
+
+def get_runtime_bitfinex_eth_subscription_chat_ids() -> list[int]:
+    return list(_load_bitfinex_eth_alert_state()["chat_ids"])
 
 
 def has_configured_okx_btc_subscription(chat_id: int) -> bool:
     return chat_id in set(get_configured_okx_btc_subscription_chat_ids())
 
 
+def has_configured_bitfinex_eth_subscription(chat_id: int) -> bool:
+    return chat_id in set(get_configured_bitfinex_eth_subscription_chat_ids())
+
+
 def has_runtime_okx_btc_subscription(chat_id: int) -> bool:
     return chat_id in set(get_runtime_okx_btc_subscription_chat_ids())
 
 
+def has_runtime_bitfinex_eth_subscription(chat_id: int) -> bool:
+    return chat_id in set(get_runtime_bitfinex_eth_subscription_chat_ids())
+
+
 def has_okx_btc_subscription(chat_id: int) -> bool:
     return chat_id in set(list_okx_btc_subscriptions())
+
+
+def has_bitfinex_eth_subscription(chat_id: int) -> bool:
+    return chat_id in set(list_bitfinex_eth_subscriptions())
 
 
 def add_okx_btc_subscription(chat_id: int) -> bool:
@@ -329,6 +405,17 @@ def add_okx_btc_subscription(chat_id: int) -> bool:
     return True
 
 
+def add_bitfinex_eth_subscription(chat_id: int) -> bool:
+    state = _load_bitfinex_eth_alert_state()
+    existing_ids = set(list_bitfinex_eth_subscriptions())
+    if chat_id in existing_ids:
+        return False
+
+    state["chat_ids"].append(chat_id)
+    _save_bitfinex_eth_alert_state(state)
+    return True
+
+
 def remove_okx_btc_subscription(chat_id: int) -> bool:
     state = _load_state()
     if chat_id not in state["chat_ids"]:
@@ -343,9 +430,26 @@ def remove_okx_btc_subscription(chat_id: int) -> bool:
     return True
 
 
+def remove_bitfinex_eth_subscription(chat_id: int) -> bool:
+    state = _load_bitfinex_eth_alert_state()
+    if chat_id not in state["chat_ids"]:
+        return False
+
+    state["chat_ids"] = [item for item in state["chat_ids"] if item != chat_id]
+    if not _combine_chat_ids(state["chat_ids"], get_configured_bitfinex_eth_subscription_chat_ids()):
+        state["walls"] = {}
+    _save_bitfinex_eth_alert_state(state)
+    return True
+
+
 def list_okx_btc_subscriptions() -> list[int]:
     state = _load_state()
     return _combine_chat_ids(state["chat_ids"], get_configured_okx_btc_subscription_chat_ids())
+
+
+def list_bitfinex_eth_subscriptions() -> list[int]:
+    state = _load_bitfinex_eth_alert_state()
+    return _combine_chat_ids(state["chat_ids"], get_configured_bitfinex_eth_subscription_chat_ids())
 
 
 def fetch_new_okx_btc_levels() -> list[OkxBtcHeatmapBand]:
@@ -394,6 +498,56 @@ def fetch_new_okx_btc_levels() -> list[OkxBtcHeatmapBand]:
     )
 
 
+def fetch_bitfinex_eth_persistent_wall_alerts() -> list[OkxBtcHeatmapBand]:
+    state = _load_bitfinex_eth_alert_state()
+    if not list_bitfinex_eth_subscriptions():
+        return []
+
+    scan = fetch_bitfinex_eth_alert_wall_scan()
+    current_bands = list(_filter_bitfinex_eth_alert_walls(scan))
+    current_wall_map = {_get_bitfinex_eth_wall_key(band): band for band in current_bands}
+    previous_walls: dict[str, dict] = state.get("walls", {})
+    updated_walls: dict[str, dict] = {}
+    alerts: list[OkxBtcHeatmapBand] = []
+    now_timestamp = scan.latest_snapshot_timestamp
+
+    for wall_key, band in current_wall_map.items():
+        previous = previous_walls.get(wall_key, {})
+        first_alert_sent_at = _safe_int(previous.get("first_alert_sent_at"))
+        followup_alert_sent_at = _safe_int(previous.get("followup_alert_sent_at"))
+
+        event = None
+        if first_alert_sent_at is None:
+            first_alert_sent_at = now_timestamp
+            event = "held"
+        elif followup_alert_sent_at is None and now_timestamp - first_alert_sent_at >= get_bitfinex_eth_alert_followup_seconds():
+            followup_alert_sent_at = now_timestamp
+            event = "still_holding"
+
+        if event:
+            alerts.append(replace(band, event=event))
+
+        updated_walls[wall_key] = {
+            "side": band.side,
+            "price_min": band.price_min,
+            "price_max": band.price_max,
+            "first_snapshot_timestamp": band.first_snapshot_timestamp,
+            "latest_snapshot_timestamp": band.latest_snapshot_timestamp,
+            "max_size": band.max_size,
+            "reference_price": band.reference_price,
+            "first_alert_sent_at": first_alert_sent_at,
+            "followup_alert_sent_at": followup_alert_sent_at,
+        }
+
+    state["walls"] = updated_walls
+    _save_bitfinex_eth_alert_state(state)
+    return sorted(
+        alerts,
+        key=lambda item: (item.max_size, item.observed_seconds, -abs(item.distance_pct)),
+        reverse=True,
+    )
+
+
 def fetch_current_okx_btc_levels() -> list[OkxBtcAlertLevel]:
     point = _fetch_latest_snapshot_point()
     return _extract_significant_levels(point)
@@ -425,6 +579,74 @@ def get_bitfinex_eth_levels_report_with_focus_prices() -> tuple[str, tuple[float
     market = _get_bitfinex_heatmap_market("eth")
     scan = _fetch_current_order_wall_scan(market)
     return _build_compact_levels_report(scan, market=market), _get_compact_report_focus_prices(scan)
+
+
+def get_bitfinex_eth_status_report(chat_id: int) -> str:
+    market = _get_bitfinex_heatmap_market("eth")
+    venue = market.display_name.split()[0]
+    runtime_enabled = has_runtime_bitfinex_eth_subscription(chat_id)
+    configured_enabled = has_configured_bitfinex_eth_subscription(chat_id)
+    enabled = runtime_enabled or configured_enabled
+
+    if runtime_enabled and configured_enabled:
+        source = "수동 등록 + 환경변수 등록"
+    elif configured_enabled:
+        source = "환경변수 등록"
+    elif runtime_enabled:
+        source = "수동 등록"
+    else:
+        source = "미등록"
+
+    lines = [
+        f"{venue} {market.raw_symbol} 오더벽 알림 상태",
+        f"- 페어: {market.raw_symbol} / {venue}",
+        f"- 현재 채팅: {'켜짐' if enabled else '꺼짐'}",
+        f"- 등록 방식: {source}",
+        (
+            f"- 알림 기준: {get_bitfinex_eth_alert_min_size():.0f} ETH 이상, "
+            f"{get_bitfinex_eth_alert_hold_seconds() // 3600}시간 이상 유지, "
+            f"현재가 대비 {get_bitfinex_eth_alert_min_distance_pct():.1f}%~{get_bitfinex_eth_alert_max_distance_pct():.1f}%"
+        ),
+        f"- 재알림: 같은 벽이 {get_bitfinex_eth_alert_followup_seconds() // 3600}시간 더 유지되면 1회, 이후 종료",
+        f"- 알림 주기: {get_bitfinex_eth_alert_poll_interval_seconds()}초",
+        f"- Kiyotaka API: {'있음' if _has_kiyotaka_api_key() else '없음'}",
+        f"- chat_id: {chat_id}",
+    ]
+    return "\n".join(lines)
+
+
+def build_bitfinex_eth_alert_message(levels: list[OkxBtcHeatmapBand]) -> str:
+    market = _get_bitfinex_heatmap_market("eth")
+    venue = market.display_name.split()[0]
+    title = f"{venue} {market.raw_symbol} 오더벽 알림"
+
+    if not levels:
+        return f"{title}\n- 페어: {market.raw_symbol} / {venue}\n- 알릴 오더벽이 없습니다."
+
+    reference_price = levels[0].reference_price
+    lines = [
+        title,
+        f"- 페어: {market.raw_symbol} / {venue}",
+        f"- 기준 시각: {levels[0].local_time}",
+        f"- 기준가: ${reference_price:,.2f}",
+        f"- 감지된 오더벽: {len(levels)}개",
+        "",
+    ]
+
+    for index, level in enumerate(levels[:get_okx_btc_report_limit()], start=1):
+        event_label = "1시간 유지" if level.event == "held" else "6시간 후 아직 유지"
+        lines.append(
+            f"{index}. {event_label} | {level.side.upper()} | {level.price_label} | "
+            f"최대 {_format_size_plain(level.max_size)} ETH | 현재가 대비 {level.distance_pct:+.2f}%"
+        )
+
+    if len(levels) > get_okx_btc_report_limit():
+        lines.append("")
+        lines.append(f"- 메모: 상위 {get_okx_btc_report_limit()}개만 표시합니다.")
+
+    lines.append("")
+    lines.append("- 메모: 같은 벽은 첫 알림 뒤 6시간 후 1회만 다시 알리고, 그 뒤에는 사라질 때까지 조용히 둡니다.")
+    return "\n".join(lines)
 
 
 def _build_compact_levels_report(scan: OkxBtcHeatmapBandScan, *, market: OkxHeatmapMarket) -> str:
@@ -682,6 +904,14 @@ def fetch_okx_btc_alert_heatmap_band_scan() -> OkxBtcHeatmapBandScan:
 
 def fetch_okx_eth_heatmap_band_scan() -> OkxBtcHeatmapBandScan:
     return _fetch_okx_heatmap_band_scan("eth")
+
+
+def fetch_bitfinex_eth_alert_wall_scan() -> OkxBtcHeatmapBandScan:
+    market = replace(
+        _get_bitfinex_heatmap_market("eth"),
+        band_min_size=get_bitfinex_eth_alert_min_size(),
+    )
+    return _fetch_heatmap_band_scan(market, period_seconds=get_bitfinex_eth_alert_scan_period_seconds())
 
 
 def _fetch_okx_heatmap_band_scan(asset: str, *, period_seconds: int | None = None) -> OkxBtcHeatmapBandScan:
@@ -973,6 +1203,7 @@ def _append_current_wall_band(
             max_size=max_size,
             reference_price=reference_price,
             latest_snapshot_timestamp=latest_snapshot_timestamp,
+            first_snapshot_timestamp=latest_snapshot_timestamp,
         )
     )
 
@@ -1003,6 +1234,7 @@ def _append_band_from_cluster(
     if sample_count > 0 and len(timestamps) / sample_count < min_persistence_ratio:
         return
     latest_snapshot_timestamp = max(timestamps)
+    first_snapshot_timestamp = min(timestamps)
 
     bands.append(
         OkxBtcHeatmapBand(
@@ -1014,6 +1246,7 @@ def _append_band_from_cluster(
             max_size=max_size,
             reference_price=reference_price,
             latest_snapshot_timestamp=latest_snapshot_timestamp,
+            first_snapshot_timestamp=first_snapshot_timestamp,
         )
     )
 
@@ -1115,6 +1348,10 @@ def _request_json(url: str, params: dict) -> dict:
         with _DIRECT_HTTP_OPENER.open(request, timeout=15) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            raise OkxBtcAlertError(
+                "Kiyotaka API auth failed: check KIYOTAKA_API_KEY in the server .env. (HTTP 401)"
+            ) from exc
         if exc.code == 429:
             raise OkxBtcAlertError("Kiyotaka API 호출이 너무 많아 잠시 제한되었습니다 (HTTP 429).") from exc
         raise OkxBtcAlertError(f"Kiyotaka API 호출 실패: HTTP {exc.code}") from exc
@@ -1165,6 +1402,29 @@ def _save_state(state: dict) -> None:
     )
 
 
+def _load_bitfinex_eth_alert_state() -> dict:
+    if not BITFINEX_ETH_ALERT_STATE_PATH.exists():
+        return {"chat_ids": [], "walls": {}}
+
+    try:
+        payload = json.loads(BITFINEX_ETH_ALERT_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+
+    return {
+        "chat_ids": payload.get("chat_ids", []),
+        "walls": payload.get("walls", {}),
+    }
+
+
+def _save_bitfinex_eth_alert_state(state: dict) -> None:
+    BITFINEX_ETH_ALERT_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    BITFINEX_ETH_ALERT_STATE_PATH.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def _combine_chat_ids(*chat_id_lists: list[int]) -> list[int]:
     merged: list[int] = []
     for chat_id_list in chat_id_lists:
@@ -1195,6 +1455,7 @@ def _serialize_active_bands(band_map: dict[str, OkxBtcHeatmapBand]) -> dict[str,
             "max_size": band.max_size,
             "reference_price": band.reference_price,
             "latest_snapshot_timestamp": band.latest_snapshot_timestamp,
+            "first_snapshot_timestamp": band.first_snapshot_timestamp,
         }
         for key, band in band_map.items()
     }
@@ -1211,6 +1472,22 @@ def _filter_recent_confirmed_alert_bands(scan: OkxBtcHeatmapBandScan) -> tuple[O
         band
         for band in scan.bands
         if _is_confirmed_alert_band(band) and _is_recent_alert_band(band, scan)
+    )
+
+
+def _filter_bitfinex_eth_alert_walls(scan: OkxBtcHeatmapBandScan) -> tuple[OkxBtcHeatmapBand, ...]:
+    hold_seconds = get_bitfinex_eth_alert_hold_seconds()
+    min_distance_pct = get_bitfinex_eth_alert_min_distance_pct()
+    max_distance_pct = get_bitfinex_eth_alert_max_distance_pct()
+    return tuple(
+        band
+        for band in scan.bands
+        for distance_pct in (abs(band.distance_pct),)
+        if (
+            band.max_size >= get_bitfinex_eth_alert_min_size()
+            and band.observed_seconds >= max(0, hold_seconds - 60)
+            and min_distance_pct <= distance_pct <= max_distance_pct + 1e-9
+        )
     )
 
 
@@ -1239,6 +1516,21 @@ def _get_watch_band_key(band: OkxBtcHeatmapBand) -> str:
     price_min = round(band.price_min / step) * step
     price_max = round(band.price_max / step) * step
     return f"{band.side}:{price_min:.2f}:{price_max:.2f}"
+
+
+def _get_bitfinex_eth_wall_key(band: OkxBtcHeatmapBand) -> str:
+    step = get_bitfinex_eth_alert_match_tolerance()
+    center_price = round(band.center_price / step) * step
+    return f"{band.side}:{center_price:.2f}"
+
+
+def _safe_int(value: object) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _get_watch_band_match_tolerance() -> float:

@@ -56,6 +56,7 @@ def _make_band(
     max_size: float,
     reference_price: float,
     latest_snapshot_timestamp: int,
+    first_snapshot_timestamp: int | None = None,
     event: str = "new",
     previous_max_size: float | None = None,
 ) -> okx_btc_alert_service.OkxBtcHeatmapBand:
@@ -68,6 +69,7 @@ def _make_band(
         max_size=max_size,
         reference_price=reference_price,
         latest_snapshot_timestamp=latest_snapshot_timestamp,
+        first_snapshot_timestamp=first_snapshot_timestamp,
         event=event,
         previous_max_size=previous_max_size,
     )
@@ -90,11 +92,23 @@ class OkxBtcAlertServiceTests(unittest.TestCase):
         self.watch_state_patcher = patch.object(okx_btc_alert_service, "OKX_BTC_ALERT_STATE_PATH", self.state_path)
         self.watch_state_patcher.start()
         self.addCleanup(self.watch_state_patcher.stop)
+        self.bitfinex_eth_state_path = Path("memory") / "test_bitfinex_eth_alert_service_state.json"
+        if self.bitfinex_eth_state_path.exists():
+            self.bitfinex_eth_state_path.unlink()
+        self.bitfinex_eth_state_patcher = patch.object(
+            okx_btc_alert_service,
+            "BITFINEX_ETH_ALERT_STATE_PATH",
+            self.bitfinex_eth_state_path,
+        )
+        self.bitfinex_eth_state_patcher.start()
+        self.addCleanup(self.bitfinex_eth_state_patcher.stop)
         self.addCleanup(self._cleanup_state_file)
 
     def _cleanup_state_file(self) -> None:
         if self.state_path.exists():
             self.state_path.unlink()
+        if self.bitfinex_eth_state_path.exists():
+            self.bitfinex_eth_state_path.unlink()
 
     def test_add_and_remove_subscription(self) -> None:
         self.assertTrue(okx_btc_alert_service.add_okx_btc_subscription(-1001234567890))
@@ -784,6 +798,181 @@ class OkxBtcAlertServiceTests(unittest.TestCase):
         self.assertIn("밑에:\n1. 2106 (101 ETH)\n2. 2055 (106 ETH)", report)
         self.assertNotIn("2354", report)
         self.assertEqual(focus_prices, (2275.0, 2484.0, 2444.0, 2106.0, 2055.0))
+
+    def test_bitfinex_eth_persistent_wall_alerts_once_then_one_followup(self) -> None:
+        okx_btc_alert_service.add_bitfinex_eth_subscription(-1001234567890)
+
+        first_scan = _make_scan(
+            _make_band(
+                side="ask",
+                price_min=2484,
+                price_max=2484,
+                snapshot_count=60,
+                sample_count=60,
+                max_size=100,
+                reference_price=2300,
+                first_snapshot_timestamp=0,
+                latest_snapshot_timestamp=3600,
+            ),
+            snapshot_count=60,
+            reference_price=2300,
+            latest_snapshot_timestamp=3600,
+        )
+        second_scan = _make_scan(
+            _make_band(
+                side="ask",
+                price_min=2484,
+                price_max=2484,
+                snapshot_count=120,
+                sample_count=120,
+                max_size=100,
+                reference_price=2300,
+                first_snapshot_timestamp=0,
+                latest_snapshot_timestamp=7200,
+            ),
+            snapshot_count=120,
+            reference_price=2300,
+            latest_snapshot_timestamp=7200,
+        )
+        followup_scan = _make_scan(
+            _make_band(
+                side="ask",
+                price_min=2484,
+                price_max=2484,
+                snapshot_count=420,
+                sample_count=420,
+                max_size=100,
+                reference_price=2300,
+                first_snapshot_timestamp=0,
+                latest_snapshot_timestamp=25200,
+            ),
+            snapshot_count=420,
+            reference_price=2300,
+            latest_snapshot_timestamp=25200,
+        )
+        after_followup_scan = _make_scan(
+            _make_band(
+                side="ask",
+                price_min=2484,
+                price_max=2484,
+                snapshot_count=480,
+                sample_count=480,
+                max_size=100,
+                reference_price=2300,
+                first_snapshot_timestamp=0,
+                latest_snapshot_timestamp=28800,
+            ),
+            snapshot_count=480,
+            reference_price=2300,
+            latest_snapshot_timestamp=28800,
+        )
+
+        with patch.dict(
+            os.environ,
+            {
+                "BITFINEX_ETH_ALERT_HOLD_SECONDS": "3600",
+                "BITFINEX_ETH_ALERT_FOLLOWUP_SECONDS": "21600",
+                "BITFINEX_ETH_ALERT_MIN_SIZE": "50",
+            },
+            clear=False,
+        ):
+            with patch.object(okx_btc_alert_service, "fetch_bitfinex_eth_alert_wall_scan", side_effect=[
+                first_scan,
+                second_scan,
+                followup_scan,
+                after_followup_scan,
+            ]):
+                first_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+                second_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+                followup_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+                after_followup_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+
+        self.assertEqual([item.event for item in first_alerts], ["held"])
+        self.assertEqual(second_alerts, [])
+        self.assertEqual([item.event for item in followup_alerts], ["still_holding"])
+        self.assertEqual(after_followup_alerts, [])
+
+    def test_bitfinex_eth_persistent_wall_realerts_after_disappearing(self) -> None:
+        okx_btc_alert_service.add_bitfinex_eth_subscription(-1001234567890)
+
+        first_scan = _make_scan(
+            _make_band(
+                side="bid",
+                price_min=2200,
+                price_max=2200,
+                snapshot_count=60,
+                sample_count=60,
+                max_size=90,
+                reference_price=2300,
+                first_snapshot_timestamp=0,
+                latest_snapshot_timestamp=3600,
+            ),
+            snapshot_count=60,
+            reference_price=2300,
+            latest_snapshot_timestamp=3600,
+        )
+        empty_scan = _make_scan(
+            snapshot_count=60,
+            reference_price=2300,
+            latest_snapshot_timestamp=7200,
+        )
+        reappeared_scan = _make_scan(
+            _make_band(
+                side="bid",
+                price_min=2200,
+                price_max=2200,
+                snapshot_count=60,
+                sample_count=60,
+                max_size=90,
+                reference_price=2300,
+                first_snapshot_timestamp=10000,
+                latest_snapshot_timestamp=13600,
+            ),
+            snapshot_count=60,
+            reference_price=2300,
+            latest_snapshot_timestamp=13600,
+        )
+
+        with patch.dict(
+            os.environ,
+            {
+                "BITFINEX_ETH_ALERT_HOLD_SECONDS": "3600",
+                "BITFINEX_ETH_ALERT_MIN_SIZE": "50",
+            },
+            clear=False,
+        ):
+            with patch.object(okx_btc_alert_service, "fetch_bitfinex_eth_alert_wall_scan", side_effect=[
+                first_scan,
+                empty_scan,
+                reappeared_scan,
+            ]):
+                first_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+                disappeared_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+                reappeared_alerts = okx_btc_alert_service.fetch_bitfinex_eth_persistent_wall_alerts()
+
+        self.assertEqual([item.event for item in first_alerts], ["held"])
+        self.assertEqual(disappeared_alerts, [])
+        self.assertEqual([item.event for item in reappeared_alerts], ["held"])
+
+    def test_bitfinex_eth_alert_message_shows_pair(self) -> None:
+        message = okx_btc_alert_service.build_bitfinex_eth_alert_message(
+            [
+                _make_band(
+                    side="ask",
+                    price_min=2300,
+                    price_max=2400,
+                    snapshot_count=60,
+                    sample_count=60,
+                    max_size=130,
+                    reference_price=2291,
+                    latest_snapshot_timestamp=1_778_239_080,
+                    event="held",
+                )
+            ]
+        )
+
+        self.assertIn("BITFINEX ETHUST 오더벽 알림", message)
+        self.assertIn("- 페어: ETHUST / BITFINEX", message)
 
 
 if __name__ == "__main__":

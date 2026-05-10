@@ -64,6 +64,18 @@ class BitmexWatcherServiceTests(unittest.TestCase):
         self.assertFalse(added)
         self.assertEqual(bitmex_watcher_service.get_runtime_subscription_chat_ids(), [])
 
+    def test_configured_subscription_parses_chat_ids_from_copy_paste_text(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "BITMEX_ALERT_CHAT_IDS": "https://t.me/trashgrandma[chat_id: -1001748530937], -1003643470349",
+            },
+            clear=False,
+        ):
+            chat_ids = bitmex_watcher_service.get_configured_subscription_chat_ids()
+
+        self.assertEqual(chat_ids, [-1001748530937, -1003643470349])
+
     def test_delayed_trade_alert_header_mentions_delay(self) -> None:
         trade = bitmex_watcher_service.BitmexWhaleTrade(
             trade_id="late-1",

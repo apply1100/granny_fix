@@ -48,6 +48,35 @@ class SafeAnswerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result)
         message.answer.assert_awaited_once_with("hello")
 
+    async def test_safe_answer_replies_to_questioner_in_group(self) -> None:
+        message = SimpleNamespace(
+            chat=SimpleNamespace(id=123, type="supergroup"),
+            message_id=77,
+            from_user=SimpleNamespace(username="pirarucu", full_name="Pirarucu", is_bot=False),
+            answer=AsyncMock(return_value=None),
+        )
+
+        result = await bot._safe_answer(message, "hello")
+
+        self.assertTrue(result)
+        message.answer.assert_awaited_once()
+        self.assertEqual(message.answer.await_args.args[0], "hello")
+        self.assertEqual(message.answer.await_args.kwargs["reply_parameters"].message_id, 77)
+
+    async def test_safe_answer_uses_plain_text_when_questioner_has_no_username(self) -> None:
+        message = SimpleNamespace(
+            chat=SimpleNamespace(id=123, type="group"),
+            message_id=88,
+            from_user=SimpleNamespace(username=None, full_name="질문한 사람", is_bot=False),
+            answer=AsyncMock(return_value=None),
+        )
+
+        result = await bot._safe_answer(message, "hello")
+
+        self.assertTrue(result)
+        self.assertEqual(message.answer.await_args.args[0], "hello")
+        self.assertEqual(message.answer.await_args.kwargs["reply_parameters"].message_id, 88)
+
     async def test_safe_answer_cleans_up_forbidden_chat(self) -> None:
         message = SimpleNamespace(
             chat=SimpleNamespace(id=123),
